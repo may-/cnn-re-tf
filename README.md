@@ -79,16 +79,8 @@ tensorboard --logdir=./train/1473898241
 
 ## References
 
-Implementation:
-
 * https://github.com/yuhaozhang/sentence-convnet
 * https://github.com/dennybritz/cnn-text-classification-tf
 * http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/
 * http://tkengo.github.io/blog/2016/03/14/text-classification-by-cnn/
-
-Theory:
-
-* 
-* 
-* 
 
