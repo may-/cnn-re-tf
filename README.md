@@ -1,4 +1,4 @@
-# Convolutional Neural Network for Language Detection
+# Convolutional Neural Network for Relation Extraction
 
 **Note:** This project is mostly based on https://github.com/yuhaozhang/sentence-convnet
 
@@ -19,8 +19,6 @@ To download wikipedia articles
 
 ## Data
 - `data` directory includes preprocessed data:
-- `word2vec` directory is empty. Please download 
-
     ```
     cnn-re-tf
     ├── ...
@@ -32,6 +30,12 @@ To download wikipedia articles
 
         
     ```    
+    To reproduce: 
+    ```
+    python ./distant_supervision.py
+    ```
+    
+- `word2vec` directory is empty. Please download the Google News pretrained vector data from [this Google Drive link](https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit), and unzip it to the directory. It will be a `.bin` file.
 
 
 ## Preprocess
@@ -70,6 +74,7 @@ Implementation:
 * http://tkengo.github.io/blog/2016/03/14/text-classification-by-cnn/
 
 Theory:
+
 * 
 * 
 * 
