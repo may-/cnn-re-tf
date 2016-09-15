@@ -11,17 +11,18 @@ import time
 import requests
 import urllib
 import glob
-import cPickle
 from codecs import open
 from itertools import combinations
 from collections import Counter
 
+import util
 
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
 
+# global variables
 data_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
 
 orig_dir = os.path.join(data_dir, 'orig')
@@ -37,13 +38,18 @@ stanford_classifier = os.path.join(ner_path, 'classifiers', 'english.all.3class.
 stanford_ner = os.path.join(ner_path, 'stanford-ner.jar')
 
 tag_map = {
-    'ORGANIZATION': 'Q43229',  #https://www.wikidata.org/wiki/Q43229
-    'LOCATION': 'Q17334923',   #https://www.wikidata.org/wiki/Q17334923
-    'PERSON': 'Q5'             #https://www.wikidata.org/wiki/Q5
+    'ORGANIZATION': 'Q43229',  # https://www.wikidata.org/wiki/Q43229
+    'LOCATION': 'Q17334923',   # https://www.wikidata.org/wiki/Q17334923
+    'PERSON': 'Q5'             # https://www.wikidata.org/wiki/Q5
 }
+
+# column names in DataFrame
+col = ['doc_id', 'sent_id', 'sent', 'subj', 'subj_begin', 'subj_end', 'subj_tag',
+       'rel', 'obj', 'obj_begin', 'obj_end', 'obj_tag']
 
 
 def sanitize(string):
+    """clean wikipedia article"""
     string = re.sub(r"\[\d{1,3}\]", " ", string)
     string = re.sub(r"\[edit\]", " ", string)
     string = re.sub(r" {2,}", " ", string)
@@ -51,6 +57,7 @@ def sanitize(string):
 
 
 def download_wiki_articles(doc_id, limit=100, retry=False):
+    """download wikipedia article via wikipedia API"""
     base_path = "http://en.wikipedia.org/w/api.php?format=xml&action=query"
     query = base_path + "&list=random&rnnamespace=0&rnlimit=%d" % limit
     r = None
@@ -92,6 +99,7 @@ def download_wiki_articles(doc_id, limit=100, retry=False):
 
 
 def exec_ner(filenames):
+    """execute Stanford NER"""
     for filename in filenames:
         in_path = os.path.join(orig_dir, filename)
         out_path = os.path.join(ner_dir, filename)
@@ -102,6 +110,7 @@ def exec_ner(filenames):
 
 
 def read_ner_output(filenames):
+    """read NER output files and store them in dataframe"""
     rows = []
     for filename in filenames:
         path = os.path.join(ner_dir, filename)
@@ -176,7 +185,6 @@ def name2qid(name, tag, alias=False, retry=False):
     (u'Q76', u'/m/02mjmr')
     >>> name2qid('Obama', 'PERSON', alias=True)   # alias match
     (u'Q76', u'/m/02mjmr')
-
     """
 
     label = 'rdfs:label'
@@ -281,7 +289,7 @@ def search_property(qid1, qid2, retry=False):
 
 def slot_filling(qid, pid, tag, retry=False):
     """
-    find slot
+    find slotfiller
 
     >>> slot_filling('Q76', 'P27', 'LOCATION') # Q76: Barack Obama, P27: country of citizenship
     [(u'United States', u'Q30', u'/m/09c7w0')]
@@ -331,6 +339,7 @@ def slot_filling(qid, pid, tag, retry=False):
 
 
 def loop(step, doc_id, limit, entities, relations, counter):
+    """Distant Supervision Loop"""
     # Download wiki articles
     print '[1/4] Downloading wiki articles ...'
     docs = download_wiki_articles(doc_id, limit)
@@ -362,8 +371,9 @@ def loop(step, doc_id, limit, entities, relations, counter):
             if e is None:
                 e = name2qid(name, tag, alias=True)
             entities[name] = e
-    with open(os.path.join(data_dir, "entities.cPickle"), "wb") as f:
-        cPickle.dump(entities, f)
+    util.dump_to_file(os.path.join(data_dir, "entities.cPickle"), entities)
+    #with open(os.path.join(data_dir, "entities.cPickle"), "wb") as f:
+    #    cPickle.dump(entities, f)
 
     # Predicate Linkage
     print '[4/4] Linking predicates ...'
@@ -374,10 +384,11 @@ def loop(step, doc_id, limit, entities, relations, counter):
                     arg1 = entities[subj][0]
                     arg2 = entities[obj][0]
                     relations[(subj, obj)] = search_property(arg1, arg2)
-                #elif (entities[subj][0] == entities[obj][0]) and (subj != obj):
-                #    relations[(subj, obj)] = 'P'
-    with open(os.path.join(data_dir, "relations.cPickle"), "wb") as f:
-        cPickle.dump(relations, f)
+                    #elif (entities[subj][0] == entities[obj][0]) and (subj != obj):
+                    #    relations[(subj, obj)] = 'P'
+    util.dump_to_file(os.path.join(data_dir, "relations.cPickle"), relations)
+    #with open(os.path.join(data_dir, "relations.cPickle"), "wb") as f:
+    #    cPickle.dump(relations, f)
 
     # Assign relation
     wiki_data['rel'] = pd.Series(index=wiki_data.index, dtype=str)
@@ -423,10 +434,7 @@ def positive_relations(entities, relations):
     return pd.DataFrame(rows)
 
 
-
-
 def positive_examples():
-
     entities = {}
     relations = {}
     counter = 0
@@ -454,25 +462,21 @@ def positive_examples():
         pos = pd.read_csv(f, sep='\t', encoding='utf-8', index_col=0)
         positive_data.append(pos[pd.notnull(pos.rel)])
     positive_df = pd.concat(positive_data, axis=0, ignore_index=True)
-    col = ['doc_id', 'sent_id', 'sent', 'subj', 'subj_begin', 'subj_end', 'subj_tag',
-           'rel', 'obj', 'obj_begin', 'obj_end', 'obj_tag']
     positive_df[col].to_csv(os.path.join(data_dir, 'positive_candidates.tsv'), sep='\t', encoding='utf-8')
 
     # positive relations
     pos_rel = positive_relations(entities, relations)
     pos_rel.to_csv(os.path.join(data_dir, 'positive_relations.tsv'), sep='\t', encoding='utf-8')
 
-    return positive_df
+
 
 
 def negative_examples():
     unique_pair = set([])
     neg_candidates = []
 
-    with open(os.path.join(data_dir, "entities.cPickle"), "rb") as f:
-        entities = cPickle.load(f)
-    with open(os.path.join(data_dir, "relations.cPickle"), "rb") as f:
-        relations = cPickle.load(f)
+    entities = util.load_from_dump(os.path.join(data_dir, "entities.cPickle"))
+    relations = util.load_from_dump(os.path.join(data_dir, "relations.cPickle"))
 
     rel_counter = Counter([u[0] for r in relations.values() if r is not None and len(r) > 0 for u in r])
     most_common_rel = [r[0] for r in rel_counter.most_common(10)]
@@ -502,17 +506,13 @@ def negative_examples():
                     row['rel'] = ', '.join(candidates)
                     neg_candidates.append(row)
 
-    #with open(os.path.join(data_dir, 'negative.cPickle'), 'wb') as f:
-    #    cPickle.dump(neg_candidates, f)
+
     neg_examples = pd.DataFrame(neg_candidates)
-    col = ['doc_id', 'sent_id', 'sent', 'subj', 'subj_begin', 'subj_end', 'subj_tag',
-           'rel', 'obj', 'obj_begin', 'obj_end', 'obj_tag']
     neg_examples[col].to_csv(os.path.join(data_dir, 'negative_candidates.tsv'), sep='\t', encoding='utf-8')
 
-    return negative_df
 
 
-def extract():
+def load_gold_patterns():
     def clean_str(string):
         string = re.sub(r", ", " , ", string)
         string = re.sub(r"' ", " ' ", string)
@@ -536,23 +536,18 @@ def extract():
                     print e
                     raise Exception('Process Error: %s' % os.path.join(data_dir, 'gold_patterns.tsv'))
 
-    gold_patterns = pd.DataFrame({'pattern': g_patterns, 'label': g_labels})
+    return pd.DataFrame({'pattern': g_patterns, 'label': g_labels})
 
 
-    with open(os.path.join(data_dir, "entities.cPickle"), "rb") as f:
-        entities = cPickle.load(f)
-    with open(os.path.join(data_dir, "relations.cPickle"), "rb") as f:
-        relations = cPickle.load(f)
+def extract_positive():
+    gold_patterns = load_gold_patterns()
+
+    entities = util.load_from_dump(os.path.join(data_dir, "entities.cPickle"))
+    relations = util.load_from_dump(os.path.join(data_dir, "relations.cPickle"))
 
 
     rel_c = Counter([u[0] for r in relations.values() if r is not None and len(r) > 0 for u in r])
     rel_c_top = [k for k, v in rel_c.most_common(50) if v >= 50]
-    sent_len = {
-        'text': 0,
-        'left': 0,
-        'middle': 0,
-        'right': 0
-    }
 
     # positive examples
     positive_df = pd.read_csv(os.path.join(data_dir, 'positive_candidates.tsv'),
@@ -567,9 +562,6 @@ def extract():
 
     with open(os.path.join(data_dir, 'clean.er'), 'w', encoding='utf-8') as f:
         for idx, row in positive_df.iterrows():
-            if idx+1 % 1000 == 0:
-                print ('  extracting line %d' % idx+1)
-
             s = row['sent']
 
             subj = '<' + entities[row['subj'].encode('utf-8')][0] + '>'
@@ -582,25 +574,13 @@ def extract():
 
             assert s[row['subj_begin']:row['subj_end']] == row['subj']
             assert s[row['obj_begin']:row['obj_end']] == row['obj']
-            #if s[row['subj_begin']:row['subj_end']] != row['subj']:
-            #    print row['subj'], s[row['subj_begin']:row['subj_end']], row['subj_begin'], row['subj_end']
-            #if s[row['obj_begin']:row['obj_end']] != row['obj']:
-            #    print row['obj'], s[row['obj_begin']:row['obj_end']], row['obj_begin'], row['obj_end']
+
             if len(text.split()) < 400 and len(text.split()) > 3 and len(rel) > 0:
 
                 positive_df.set_value(idx, 'right', right.strip())
                 positive_df.set_value(idx, 'middle', middle.strip())
                 positive_df.set_value(idx, 'left', left.strip())
                 positive_df.set_value(idx, 'clean', text.strip())
-
-                if len(left.split()) > sent_len['left']:
-                    sent_len['left'] = len(left.split())
-                if len(middle.split()) > sent_len['middle']:
-                    sent_len['middle'] = len(middle.split())
-                if len(right.split()) > sent_len['right']:
-                    sent_len['right'] = len(right.split())
-                if len(text.split()) > sent_len['text']:
-                    sent_len['text'] = len(text.split())
 
                 label = ['0'] * len(rel_c_top)
                 for u in row['rel'].split(','):
@@ -614,7 +594,7 @@ def extract():
                             pattern = g['pattern']
                             pattern = re.sub(r'\$ARG(0|1)', row['subj'], pattern, count=1)
                             pattern = re.sub(r'\$ARG(0|2)', row['obj'], pattern, count=1)
-                            match = re.search(pattern, s) #s = row['sent]
+                            match = re.search(pattern, s) #s = row['sent']
                             if match:
                                 positive_df.set_value(idx, 'attention', 1.0)
 
@@ -632,33 +612,37 @@ def extract():
     positive_df_valid['attention'].to_csv(os.path.join(data_dir, 'clean.att'), sep='\t', index=False, header=False, encoding='utf-8')
 
 
+
+def extract_negative():
+    entities = util.load_from_dump(os.path.join(data_dir, "entities.cPickle"))
+
     # negative examples
     negative_df = pd.read_csv(os.path.join(data_dir, 'negative_candidates.tsv'),
                               sep='\t', encoding='utf-8', index_col=0)
 
     with open(os.path.join(data_dir, 'clean.er'), 'a', encoding='utf-8') as f:
         for idx, row in negative_df.iterrows():
-            if idx+1 % 1000 == 0:
-                print ('  extracting line %d' % idx+1)
-
             s = row['sent']
 
             subj = '<' + entities[row['subj'].encode('utf-8')][0] + '>'
             obj = '<' + entities[row['obj'].encode('utf-8')][0] + '>'
-            rel = ['<' + l.strip() + '>' for l in row['rel'].split(',') if l.strip() in rel_c_top]
+            rel = ['<' + l.strip() + '>' for l in row['rel'].split(',')]
 
             assert s[row['subj_begin']:row['subj_end']] == row['subj']
             assert s[row['obj_begin']:row['obj_end']] == row['obj']
 
-            for r in rel:
-                f.write('0' + '\t' + subj + ' ' + r + ' ' + obj + '\n')
+            if len(rel) > 0:
+                for r in rel:
+                    f.write('0' + '\t' + subj + ' ' + r + ' ' + obj + '\n')
 
 
 
 def main():
     #positive_examples()
+    extract_positive()
+
     #negative_examples()
-    extract()
+    extract_negative()
 
 
 

@@ -6,6 +6,8 @@ Mostly based on https://github.com/yuhaozhang/sentence-convnet
 
 import tensorflow as tf
 
+
+
 # model parameters
 tf.app.flags.DEFINE_integer('batch_size', 100, 'Training batch size')
 tf.app.flags.DEFINE_integer('emb_size', 300, 'Size of word embeddings')
@@ -13,9 +15,9 @@ tf.app.flags.DEFINE_integer('num_kernel', 100, 'Number of filters for each windo
 tf.app.flags.DEFINE_integer('min_window', 3, 'Minimum size of filter window')
 tf.app.flags.DEFINE_integer('max_window', 5, 'Maximum size of filter window')
 tf.app.flags.DEFINE_integer('vocab_size', 40000, 'Vocabulary size')
-tf.app.flags.DEFINE_integer('num_classes', 50, 'Number of class to consider')
+tf.app.flags.DEFINE_integer('num_classes', 10, 'Number of class to consider')
 tf.app.flags.DEFINE_integer('sent_len', 400, 'Input sentence length. This is after the padding is performed.')
-tf.app.flags.DEFINE_float('l2_reg', 0, 'l2 regularization weight')
+tf.app.flags.DEFINE_float('l2_reg', 1e-4, 'l2 regularization weight')
 tf.app.flags.DEFINE_boolean('attention', False, 'Whether use attention or not')
 tf.app.flags.DEFINE_boolean('multi_label', False, 'Multilabel or not')
 
@@ -88,13 +90,13 @@ class Model(object):
         for k_size in range(self.min_window, self.max_window+1):
             with tf.variable_scope('conv-%d' % k_size) as scope:
                 kernel, wd = _variable_with_weight_decay(
-                    name='kernel_%d' % k_size,
+                    name='kernel-%d' % k_size,
                     shape=[k_size, self.emb_size, 1, self.num_kernel],
                     initializer=tf.truncated_normal_initializer(stddev=0.01),
                     wd=self.l2_reg)
                 losses.append(wd)
                 conv = tf.nn.conv2d(input=sent_batch, filter=kernel, strides=[1,1,1,1], padding='VALID')
-                biases = _variable_on_cpu(name='biases_%d' % k_size,
+                biases = _variable_on_cpu(name='bias-%d' % k_size,
                                           shape=[self.num_kernel],
                                           initializer=tf.constant_initializer(0.0))
                 bias = tf.nn.bias_add(conv, biases)
@@ -123,7 +125,7 @@ class Model(object):
                                                 initializer=tf.truncated_normal_initializer(stddev=0.05),
                                                 wd=self.l2_reg)
             losses.append(wd)
-            biases = _variable_on_cpu('biases', shape=[self.num_classes],
+            biases = _variable_on_cpu('bias', shape=[self.num_classes],
                                       initializer=tf.constant_initializer(0.01))
             self.logits = tf.nn.bias_add(tf.matmul(pool_dropout, W), biases, name='logits')
 
@@ -131,14 +133,13 @@ class Model(object):
         with tf.variable_scope('loss') as scope:
             if self.multi_label:
                 cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(self.logits, self._labels,
-                                                                    name='cross_entropy_per_example')
+                                                                        name='cross_entropy_per_example')
             else:
                 cross_entropy = tf.nn.softmax_cross_entropy_with_logits(self.logits, self._labels,
                                                                         name='cross_entropy_per_example')
 
             if self.is_train and self.multi_instance: # apply attention
-                cross_entropy_loss = tf.reduce_sum(tf.mul(cross_entropy, self._attention),
-                                                   name='cross_entropy_loss')
+                cross_entropy_loss = tf.reduce_sum(tf.mul(cross_entropy, self._attention), name='cross_entropy_loss')
             else:
                 cross_entropy_loss = tf.reduce_mean(cross_entropy, name='cross_entropy_loss')
 
@@ -146,18 +147,19 @@ class Model(object):
             self._total_loss = tf.add_n(losses, name='total_loss')
 
 
-        # eval with auc metric
+        # eval with auc-pr metric
         with tf.variable_scope('auc') as scope:
-            #precision = []
-            #recall = []
-            #for threshold in [0.4]:
-            #    pre, rec = _auc_pr(self._labels, self.logits, threshold)
-            #    precision.append(pre)
-            #    recall.append(rec)
-            threshold = 0.4
-            precision, recall = _auc_pr(self._labels, self.logits, threshold)
-            self._auc_op = tf.truediv(tf.mul(tf.constant(2.0, dtype=tf.float64),
-                                             tf.mul(precision, recall)), tf.add(precision, recall))
+            precision = []
+            recall = []
+            for threshold in range(9, 0, -1):
+                pre, rec = _auc_pr(self._labels, self.logits, threshold * 0.1)
+                precision.append(pre)
+                recall.append(rec)
+            self._auc_op = zip(precision, recall)
+
+            # f1 score on threshold=0.4
+            #self._f1_score = tf.truediv(tf.mul(tf.constant(2.0, dtype=tf.float64),
+            #                                 tf.mul(precision[5], recall[5])), tf.add(precision, recall))
 
 
         # train on a batch

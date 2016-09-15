@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import sys
+
 import os
 import re
 from codecs import open as codecs_open
@@ -13,7 +13,7 @@ import numpy as np
 PAD_TOKEN = '<pad>' # pad symbol
 UNK_TOKEN = '<unk>' # unknown word
 BOS_TOKEN = '<bos>' # begin-of-sentence symbol
-EOS_TOKEN = '<eos>' # end-of-sentence
+EOS_TOKEN = '<eos>' # end-of-sentence symbol
 NUM_TOKEN = '<num>' # numbers
 
 # we always put them at the start.
@@ -109,58 +109,37 @@ def data_to_token_ids(data_path, target_path, vocabulary_path, tokenizer=None, b
         with codecs_open(data_path, "rb", encoding="utf-8") as data_file:
             with codecs_open(target_path, "wb", encoding="utf-8") as tokens_file:
                 for line in data_file:
+                    line = line.split('\t')
+                    if len(line) > 1:
+                        line = line[1].strip()
+                    else:
+                        line = line[0].strip()
                     token_ids = sentence_to_token_ids(line, vocab, tokenizer, bos, eos)
                     tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
 
-def read_data(source_path, target_path, attention_path, sent_len, train_size=10000, shuffle=True):
-    """Read data from source and target files.
-
-    Original taken from
-    https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/rnn/translate/translate.py
-    """
-    _X = []
-    _y = []
-    _a = []
-    with codecs_open(source_path, mode="r", encoding="utf-8") as source_file:
-        with codecs_open(target_path, mode="r", encoding="utf-8") as target_file:
-            with codecs_open(attention_path, mode="r", encoding="utf-8") as att_file:
-                source, target, att = source_file.readline(), target_file.readline(), att_file.readline()
-                counter = 0
-                print("Loading data...")
-                while source and target and att:
-                    counter += 1
-                    #if counter % 1000 == 0:
-                    #    print("  reading data line %d" % counter)
-                    #    sys.stdout.flush()
-                    source_ids = [np.int64(x.strip()) for x in source.split()]
-                    if sent_len > len(source_ids):
-                        source_ids += [PAD_ID] * (sent_len - len(source_ids))
-                    assert len(source_ids) == sent_len
-
-                    target_ids = [np.float32(y.strip()) for y in target.split()]
-
-                    _X.append(source_ids)
-                    _y.append(target_ids)
-                    _a.append(np.float32(att.strip()))
-                    source, target, att = source_file.readline(), target_file.readline(), att_file.readline()
-
-
-    _X = np.array(_X)
-    _y = np.array(_y)
-    _a = np.array(_a)
-    _a_softmax = np.reshape(np.exp(_a) / np.sum(np.exp(_a)), (_y.shape[0], 1))
-    #print _X.shape, _y.shape, _a_softmax.shape
+def shuffle_split(X, y, a=None, train_size=10000, shuffle=True):
+    """Shuffle and split data into train and test subset"""
+    _X = np.array(X)
+    _y = np.array(y)
     assert _X.shape[0] == _y.shape[0]
-    assert _a_softmax.shape[0] == _y.shape[0]
-    assert _X.shape[1] == sent_len
+
+
+    _a = [None] * _y.shape[0]
+    if a is not None and len(a) == len(y):
+        _a = np.array(a)
+        # compute softmax
+        _a = np.reshape(np.exp(_a) / np.sum(np.exp(_a)), (_y.shape[0], 1))
+        assert _a.shape[0] == _y.shape[0]
 
     print("Shuffling and splitting data...")
     # split train-test
-    data = np.array(zip(_X, _y, _a_softmax))
+    data = np.array(zip(_X, _y, _a))
     data_size = _y.shape[0]
+    if train_size > data_size:
+        train_size = int(data_size * 0.9)
     if shuffle:
-        #np.random.seed(RANDOM_SEED)
+        np.random.seed(RANDOM_SEED)
         shuffle_indices = np.random.permutation(np.arange(data_size))
         shuffled_data = data[shuffle_indices]
     else:
@@ -168,11 +147,51 @@ def read_data(source_path, target_path, attention_path, sent_len, train_size=100
     return shuffled_data[:train_size], shuffled_data[train_size:]
 
 
+def read_data(source_path, target_path, sent_len, attention_path=None, train_size=10000, shuffle=True):
+    """Read source(x), target(y) and attention if given.
+
+    Original taken from
+    https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/rnn/translate/translate.py
+    """
+    _X = []
+    _y = []
+    with codecs_open(source_path, mode="r", encoding="utf-8") as source_file:
+        with codecs_open(target_path, mode="r", encoding="utf-8") as target_file:
+            source, target = source_file.readline(), target_file.readline()
+            counter = 0
+            print("Loading data...")
+            while source and target:
+                counter += 1
+                #if counter % 1000 == 0:
+                #    print("  reading data line %d" % counter)
+                #    sys.stdout.flush()
+                source_ids = [np.int64(x.strip()) for x in source.split()]
+                if sent_len > len(source_ids):
+                    source_ids += [PAD_ID] * (sent_len - len(source_ids))
+                assert len(source_ids) == sent_len
+
+                target_ids = [np.float32(y.strip()) for y in target.split()]
+
+                _X.append(source_ids)
+                _y.append(target_ids)
+                source, target = source_file.readline(), target_file.readline()
+
+    _a = None
+    if attention_path is not None:
+        with codecs_open(attention_path, mode="r", encoding="utf-8") as att_file:
+            _a = [np.float32(att.strip()) for att in att_file.readlines()]
+            assert len(_a) == len(_y)
+
+    return shuffle_split(_X, _y, a=_a, train_size=train_size, shuffle=shuffle)
+
+
+
+
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """Generates a batch iterator for a dataset.
 
     Original taken from
-
+    https://github.com/dennybritz/cnn-text-classification-tf/blob/master/data_helpers.py
     """
     data = np.array(data)
     data_size = len(data)
@@ -205,6 +224,9 @@ def load_from_dump(filename):
 def _load_bin_vec(fname, vocab):
     """
     Loads 300x1 word vecs from Google (Mikolov) word2vec
+
+    Original taken from
+    https://github.com/yuhaozhang/sentence-convnet/blob/master/text_input.py
     """
     word_vecs = {}
     with open(fname, "rb") as f:
@@ -244,6 +266,7 @@ def prepare_pretrained_embedding(fname, word2id):
 
 
 
+
 def prepare_ids(data_dir, vocab_path):
     for context in ['left', 'middle', 'right', 'txt']:
         data_path = os.path.join(data_dir, 'clean.%s' % context)
@@ -259,11 +282,11 @@ def prepare_ids(data_dir, vocab_path):
         data_to_token_ids(data_path, target_path, vocab_path, bos=bos, eos=eos)
 
 
-
 def main():
-    # text data
     data_dir = os.path.join(THIS_DIR, 'data')
-    """
+
+
+    # text data
     vocab_path = os.path.join(data_dir, 'vocab.txt')
     data_path = os.path.join(data_dir, 'clean.txt')
     max_vocab_size = 40000
@@ -276,7 +299,7 @@ def main():
     embedding_path = os.path.join(THIS_DIR, 'word2vec', 'GoogleNews-vectors-negative300.bin')
     embedding = prepare_pretrained_embedding(embedding_path, word2id)
     np.save(os.path.join(data_dir, 'emb.npy'), embedding)
-    """
+
 
     # er data
     vocab_er = os.path.join(data_dir, 'vocab.er')

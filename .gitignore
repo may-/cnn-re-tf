@@ -1,2 +1,10 @@
 .idea
-
+data/ner
+data/orig
+data/*.cPickle
+data/candidates*.tsv
+data/ids.*
+data/vocab.*
+data/emb.npy
+word2vec/*
+train/*
