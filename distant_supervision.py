@@ -608,7 +608,7 @@ def extract_positive():
     positive_df_valid['middle'].to_csv(os.path.join(data_dir, 'clean.middle'), sep='\t', index=False, header=False, encoding='utf-8')
     positive_df_valid['left'].to_csv(os.path.join(data_dir, 'clean.left'), sep='\t', index=False, header=False, encoding='utf-8')
     positive_df_valid['clean'].to_csv(os.path.join(data_dir, 'clean.txt'), sep='\t', index=False, header=False, encoding='utf-8')
-    positive_df_valid['label'].to_csv(os.path.join(data_dir, 'ids.label'), sep='\t', index=False, header=False, encoding='utf-8')
+    positive_df_valid['label'].to_csv(os.path.join(data_dir, 'clean.label'), sep='\t', index=False, header=False, encoding='utf-8')
     positive_df_valid['attention'].to_csv(os.path.join(data_dir, 'clean.att'), sep='\t', index=False, header=False, encoding='utf-8')
 
 
