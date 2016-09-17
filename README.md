@@ -1,4 +1,4 @@
-# Convolutional Neural Network for Relation Extraction
+# Attention-based Convolutional Neural Network for Relation Extraction
 
 **Note:** This project is mostly based on https://github.com/yuhaozhang/sentence-convnet
 
@@ -29,9 +29,13 @@ To visualize the result (`eval.py`)
     ├── ...
     ├── word2vec
     └── data
-        ├── clean.att   # attention
-        ├── clean.label # label (class names)
-        └── clean.txt   # raw sentences
+        ├── er              # single-label single-instance dataset
+        │   ├── source.txt  #   source sentences
+        │   └── target.txt  #   target labels
+        └── mlmi            # multi-label multi-instance dataset
+            ├── source.att  #   attention
+            ├── source.txt  #   source sentences
+            └── target.txt  #   target labels
     ```    
     To reproduce: 
     ```
@@ -50,25 +54,37 @@ and unzip it to the directory. It will be a `.bin` file.
 ```sh
 python ./util.py
 ```
-It creates `vocab.txt` and `ids.txt` files in `data` directory.
+It creates `vocab.txt`, `ids.txt` and `emb.npy` files.
 
 ### Training
 
-For multi-label multi-instance learning on provided dataset:
-```sh
-python ./train.py --train_dir=./train --data_dir=./data \
---sent_len=371 --vocab_size=36393 --num_classes=23 \
---attention=True --multi_label=True --use_pretrain=True
-```
-If you want to train the model on other dataset, please modify the path variables in `main()` func 
-and specify the option values(`sent_len`, `vocab_size`, `num_class`) properly.
+- Single-label single-instance learning on the provided dataset:
+    ```sh
+    python ./train.py --sent_len=3 --vocab_size=11208 --num_classes=2 \
+    --data_dir=./data/er --attention=False --multi_label=False --use_pretrain=False
+    ```
+
+- Multi-label multi-instance learning on the provided dataset:
+    ```sh
+    python ./train.py --sent_len=255 --vocab_size=36112 --num_classes=23 \
+    --data_dir=./data/mlmi --attention=True --multi_label=True --use_pretrain=True
+    ```
+    
+- Context-wise learning on the provided dataset:
+    ```sh
+    python ./train_context.py --sent_len=102 --vocab_size=36112 --num_classes=23 \
+    --data_dir=./data/mlmi --attention=True --multi_label=True --use_pretrain=True
+    ```
+
+**Caution:** A wrong value for input-data-dependent options (`sent_len`, `vocab_size` and `num_class`) 
+may cause an error. If you want to train the model on another dataset, please check these values.
 
 ### Evaluation
 
 ```sh
 python ./eval.py --train_dir=./train/1473898241
 ```
-It creates a png image file of Precision-Recall curve in the `train_dir`.
+
 
 ### Run TensorBoard
 

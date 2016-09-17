@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
 
+##########################################################
+#
+# Distant Supervision
+#
+###########################################################
+
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup as bs
@@ -24,14 +30,9 @@ sys.setdefaultencoding("utf-8")
 
 # global variables
 data_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
-
 orig_dir = os.path.join(data_dir, 'orig')
-if not os.path.exists(orig_dir):
-    os.mkdir(orig_dir)
-
 ner_dir = os.path.join(data_dir, 'ner')
-if not os.path.exists(ner_dir):
-    os.mkdir(ner_dir)
+
 
 ner_path = "/usr/local/Cellar/stanford-ner/3.5.2/libexec/"
 stanford_classifier = os.path.join(ner_path, 'classifiers', 'english.all.3class.distsim.crf.ser.gz')
@@ -200,7 +201,7 @@ def name2qid(name, tag, alias=False, retry=False):
     OPTIONAL { ?item wdt:P646 ?fid. }\
     }\
     LIMIT 10'
-    headers = {"Accept" : "application/json"}
+    headers = {"Accept": "application/json"}
 
     # check response
     r = None
@@ -254,7 +255,7 @@ def search_property(qid1, qid2, retry=False):
     OPTIONAL { ?property wdt:P1628 ?s FILTER (SUBSTR(str(?s), 1, 18) = "http://schema.org/"). }\
     }\
     LIMIT 10'
-    headers = {"Accept" : "application/json"}
+    headers = {"Accept": "application/json"}
 
     # check response
     r = None
@@ -305,7 +306,7 @@ def slot_filling(qid, pid, tag, retry=False):
     OPTIONAL { ?item wdt:P646 ?fid. }\
     }\
     LIMIT 100'
-    headers = {"Accept" : "application/json"}
+    headers = {"Accept": "application/json"}
 
     # check response
     r = None
@@ -362,7 +363,6 @@ def loop(step, doc_id, limit, entities, relations, counter):
         unique_entities.add((row['obj'], row['obj_tag']))
         unique_entity_pairs.add((row['subj'], row['obj']))
 
-
     # Entity Linkage
     print '[3/4] Linking entities ...'
     for name, tag in unique_entities:
@@ -372,8 +372,6 @@ def loop(step, doc_id, limit, entities, relations, counter):
                 e = name2qid(name, tag, alias=True)
             entities[name] = e
     util.dump_to_file(os.path.join(data_dir, "entities.cPickle"), entities)
-    #with open(os.path.join(data_dir, "entities.cPickle"), "wb") as f:
-    #    cPickle.dump(entities, f)
 
     # Predicate Linkage
     print '[4/4] Linking predicates ...'
@@ -384,11 +382,10 @@ def loop(step, doc_id, limit, entities, relations, counter):
                     arg1 = entities[subj][0]
                     arg2 = entities[obj][0]
                     relations[(subj, obj)] = search_property(arg1, arg2)
+                    #TODO: alternative name relation
                     #elif (entities[subj][0] == entities[obj][0]) and (subj != obj):
                     #    relations[(subj, obj)] = 'P'
     util.dump_to_file(os.path.join(data_dir, "relations.cPickle"), relations)
-    #with open(os.path.join(data_dir, "relations.cPickle"), "wb") as f:
-    #    cPickle.dump(relations, f)
 
     # Assign relation
     wiki_data['rel'] = pd.Series(index=wiki_data.index, dtype=str)
@@ -405,9 +402,9 @@ def loop(step, doc_id, limit, entities, relations, counter):
     wiki_data.to_csv(path, sep='\t', encoding='utf-8')
 
     # Cleanup
-    for f in glob.glob(os.path.join(orig_dir, '*.txt')):
+    for f in glob.glob(os.path.join(orig_dir, '*')):
         os.remove(f)
-    for f in glob.glob(os.path.join(ner_dir, '*.txt')):
+    for f in glob.glob(os.path.join(ner_dir, '*')):
         os.remove(f)
 
     return doc_id, entities, relations, counter
@@ -442,6 +439,11 @@ def positive_examples():
     doc_id = []
     step = 1
 
+    if not os.path.exists(orig_dir):
+        os.mkdir(orig_dir)
+    if not os.path.exists(ner_dir):
+        os.mkdir(ner_dir)
+
     #for j in range(1, step):
     #    wiki_data = pd.read_csv(os.path.join(data_dir, "candidates%d.tsv" % j), sep='\t', index_col=0)
     #    doc_id.extend([int(s) for s in wiki_data.doc_id.unique()])
@@ -454,7 +456,6 @@ def positive_examples():
             doc_id, entities, relations, counter = ret
 
         step += 1
-
 
     # positive candidates
     positive_data = []
@@ -469,9 +470,8 @@ def positive_examples():
     pos_rel.to_csv(os.path.join(data_dir, 'positive_relations.tsv'), sep='\t', encoding='utf-8')
 
 
-
-
 def negative_examples():
+
     unique_pair = set([])
     neg_candidates = []
 
@@ -540,12 +540,20 @@ def load_gold_patterns():
 
 
 def extract_positive():
+    if not os.path.exists(os.path.join(data_dir, 'mlmi')):
+        os.mkdir(os.path.join(data_dir, 'mlmi'))
+    if not os.path.exists(os.path.join(data_dir, 'er')):
+        os.mkdir(os.path.join(data_dir, 'er'))
+
+    # read gold patterns to extract attention
     gold_patterns = load_gold_patterns()
 
+
+    # read dumps
     entities = util.load_from_dump(os.path.join(data_dir, "entities.cPickle"))
     relations = util.load_from_dump(os.path.join(data_dir, "relations.cPickle"))
 
-
+    # filter out the relations which occur less than 50 times
     rel_c = Counter([u[0] for r in relations.values() if r is not None and len(r) > 0 for u in r])
     rel_c_top = [k for k, v in rel_c.most_common(50) if v >= 50]
 
@@ -560,7 +568,8 @@ def extract_positive():
     positive_df['label'] = pd.Series(index=positive_df.index, dtype=str)
     positive_df['attention'] = pd.Series([0.0]*len(positive_df), index=positive_df.index, dtype=np.float32)
 
-    with open(os.path.join(data_dir, 'clean.er'), 'w', encoding='utf-8') as f:
+    num_er = 0
+    with open(os.path.join(data_dir, 'er', 'source.txt'), 'w', encoding='utf-8') as f:
         for idx, row in positive_df.iterrows():
             s = row['sent']
 
@@ -575,7 +584,7 @@ def extract_positive():
             assert s[row['subj_begin']:row['subj_end']] == row['subj']
             assert s[row['obj_begin']:row['obj_end']] == row['obj']
 
-            if len(text.split()) < 400 and len(text.split()) > 3 and len(rel) > 0:
+            if len(left.split()) < 100 and len(middle.split()) < 100 and len(right.split()) < 100 and len(rel) > 0:
 
                 positive_df.set_value(idx, 'right', right.strip())
                 positive_df.set_value(idx, 'middle', middle.strip())
@@ -599,18 +608,28 @@ def extract_positive():
                                 positive_df.set_value(idx, 'attention', 1.0)
 
                 for r in rel:
-                    f.write('1' + '\t' + subj + ' ' + r + ' ' + obj + '\n')
+                    num_er += 1
+                    f.write(subj + ' ' + r + ' ' + obj + '\n')
+
+    with open(os.path.join(data_dir, 'er', 'target.txt'), 'w', encoding='utf-8') as f:
+        for _ in range(num_er):
+            f.write('1 0\n')
 
     positive_df_valid = positive_df[pd.notnull(positive_df.clean)]
     assert len(positive_df_valid['clean']) == len(positive_df_valid['label'])
 
-    positive_df_valid['right'].to_csv(os.path.join(data_dir, 'clean.right'), sep='\t', index=False, header=False, encoding='utf-8')
-    positive_df_valid['middle'].to_csv(os.path.join(data_dir, 'clean.middle'), sep='\t', index=False, header=False, encoding='utf-8')
-    positive_df_valid['left'].to_csv(os.path.join(data_dir, 'clean.left'), sep='\t', index=False, header=False, encoding='utf-8')
-    positive_df_valid['clean'].to_csv(os.path.join(data_dir, 'clean.txt'), sep='\t', index=False, header=False, encoding='utf-8')
-    positive_df_valid['label'].to_csv(os.path.join(data_dir, 'clean.label'), sep='\t', index=False, header=False, encoding='utf-8')
-    positive_df_valid['attention'].to_csv(os.path.join(data_dir, 'clean.att'), sep='\t', index=False, header=False, encoding='utf-8')
-
+    positive_df_valid['right'].to_csv(os.path.join(data_dir, 'mlmi', 'source.right'),
+                                      sep='\t', index=False, header=False, encoding='utf-8')
+    positive_df_valid['middle'].to_csv(os.path.join(data_dir, 'mlmi', 'source.middle'),
+                                       sep='\t', index=False, header=False, encoding='utf-8')
+    positive_df_valid['left'].to_csv(os.path.join(data_dir, 'mlmi', 'source.left'),
+                                     sep='\t', index=False, header=False, encoding='utf-8')
+    positive_df_valid['clean'].to_csv(os.path.join(data_dir, 'mlmi', 'source.txt'),
+                                      sep='\t', index=False, header=False, encoding='utf-8')
+    positive_df_valid['label'].to_csv(os.path.join(data_dir, 'mlmi', 'target.txt'),
+                                      sep='\t', index=False, header=False, encoding='utf-8')
+    positive_df_valid['attention'].to_csv(os.path.join(data_dir, 'mlmi', 'source.att'),
+                                          sep='\t', index=False, header=False, encoding='utf-8')
 
 
 def extract_negative():
@@ -620,28 +639,32 @@ def extract_negative():
     negative_df = pd.read_csv(os.path.join(data_dir, 'negative_candidates.tsv'),
                               sep='\t', encoding='utf-8', index_col=0)
 
-    with open(os.path.join(data_dir, 'clean.er'), 'a', encoding='utf-8') as f:
-        for idx, row in negative_df.iterrows():
-            s = row['sent']
+    with open(os.path.join(data_dir, 'er', 'source.txt'), 'a', encoding='utf-8') as source_file:
+        with open(os.path.join(data_dir, 'er', 'target.txt'), 'a', encoding='utf-8') as target_file:
+            for idx, row in negative_df.iterrows():
+                s = row['sent']
 
-            subj = '<' + entities[row['subj'].encode('utf-8')][0] + '>'
-            obj = '<' + entities[row['obj'].encode('utf-8')][0] + '>'
-            rel = ['<' + l.strip() + '>' for l in row['rel'].split(',')]
+                subj = '<' + entities[row['subj'].encode('utf-8')][0] + '>'
+                obj = '<' + entities[row['obj'].encode('utf-8')][0] + '>'
+                rel = ['<' + l.strip() + '>' for l in row['rel'].split(',')]
 
-            assert s[row['subj_begin']:row['subj_end']] == row['subj']
-            assert s[row['obj_begin']:row['obj_end']] == row['obj']
+                assert s[row['subj_begin']:row['subj_end']] == row['subj']
+                assert s[row['obj_begin']:row['obj_end']] == row['obj']
 
-            if len(rel) > 0:
-                for r in rel:
-                    f.write('0' + '\t' + subj + ' ' + r + ' ' + obj + '\n')
-
-
+                if len(rel) > 0:
+                    for r in rel:
+                        source_file.write(subj + ' ' + r + ' ' + obj + '\n')
+                        target_file.write('0 1\n')
 
 def main():
-    #positive_examples()
+    # gather positive examples
+    if not os.path.exists(os.path.join(data_dir, 'positive_candidates.tsv')):
+        positive_examples()
     extract_positive()
 
-    #negative_examples()
+    # gather negative examples
+    if not os.path.exists(os.path.join(data_dir, 'negative_candidates.tsv')):
+        negative_examples()
     extract_negative()
 
 

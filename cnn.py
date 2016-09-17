@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
 
-"""
-Mostly based on https://github.com/yuhaozhang/sentence-convnet
-"""
+##########################################################
+#
+# Attention-based Convolutional Neural Network
+#   for Multi-label Multi-instance Learning
+#
+#
+#   Note: this implementation is mostly based on
+#   https://github.com/yuhaozhang/sentence-convnet/blob/master/model.py
+#
+##########################################################
 
 import tensorflow as tf
-
-
 
 # model parameters
 tf.app.flags.DEFINE_integer('batch_size', 100, 'Training batch size')
@@ -16,7 +21,7 @@ tf.app.flags.DEFINE_integer('min_window', 3, 'Minimum size of filter window')
 tf.app.flags.DEFINE_integer('max_window', 5, 'Maximum size of filter window')
 tf.app.flags.DEFINE_integer('vocab_size', 40000, 'Vocabulary size')
 tf.app.flags.DEFINE_integer('num_classes', 10, 'Number of class to consider')
-tf.app.flags.DEFINE_integer('sent_len', 400, 'Input sentence length. This is after the padding is performed.')
+tf.app.flags.DEFINE_integer('sent_len', 400, 'Input sentence length.')
 tf.app.flags.DEFINE_float('l2_reg', 1e-4, 'l2 regularization weight')
 tf.app.flags.DEFINE_boolean('attention', False, 'Whether use attention or not')
 tf.app.flags.DEFINE_boolean('multi_label', False, 'Multilabel or not')
@@ -73,8 +78,7 @@ class Model(object):
         """ Build the computation graph. """
         self._inputs = tf.placeholder(dtype=tf.int64, shape=[None, self.sent_len], name='input_x')
         self._labels = tf.placeholder(dtype=tf.float32, shape=[None, self.num_classes], name='input_y')
-        if self.is_train and self.multi_instance:
-            self._attention = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='attention')
+        self._attention = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='attention')
         losses = []
 
         # lookup layer
@@ -139,7 +143,8 @@ class Model(object):
                                                                         name='cross_entropy_per_example')
 
             if self.is_train and self.multi_instance: # apply attention
-                cross_entropy_loss = tf.reduce_sum(tf.mul(cross_entropy, self._attention), name='cross_entropy_loss')
+                cross_entropy_loss = tf.reduce_sum(tf.mul(cross_entropy, self._attention),
+                                                   name='cross_entropy_loss')
             else:
                 cross_entropy_loss = tf.reduce_mean(cross_entropy, name='cross_entropy_loss')
 
@@ -147,17 +152,17 @@ class Model(object):
             self._total_loss = tf.add_n(losses, name='total_loss')
 
 
-        # eval with auc-pr metric
-        with tf.variable_scope('auc') as scope:
+        # eval with precision-recall
+        with tf.variable_scope('evaluation') as scope:
             precision = []
             recall = []
-            for threshold in range(9, 0, -1):
+            for threshold in range(10, -1, -1):
                 pre, rec = _auc_pr(self._labels, self.logits, threshold * 0.1)
                 precision.append(pre)
                 recall.append(rec)
-            self._auc_op = zip(precision, recall)
+            self._eval_op = zip(precision, recall)
 
-            # f1 score on threshold=0.4
+            # f1 score on threshold=0.5
             #self._f1_score = tf.truediv(tf.mul(tf.constant(2.0, dtype=tf.float64),
             #                                 tf.mul(precision[5], recall[5])), tf.add(precision, recall))
 
@@ -210,8 +215,8 @@ class Model(object):
         return self._total_loss
 
     @property
-    def auc_op(self):
-        return self._auc_op
+    def eval_op(self):
+        return self._eval_op
 
     @property
     def scores(self):

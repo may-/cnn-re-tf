@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 
+##########################################################
+#
+# Helper functions to load data
+#
+###########################################################
 
 import os
 import re
 from codecs import open as codecs_open
 import cPickle as pickle
 import numpy as np
-
 
 
 # Special vocabulary symbols.
@@ -28,6 +32,13 @@ _DIGIT_RE = re.compile(br"^\d+$")
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 RANDOM_SEED = 1234
 
+
+""" Distant Supervision
+
+    Source: Wikidata (one of a successor of Freebase)
+    Target: Wikipedia articles
+"""
+
 def basic_tokenizer(sequence, bos=True, eos=True):
     sequence = re.sub(r'\s{2}', ' ' + EOS_TOKEN + ' ' + BOS_TOKEN + ' ', sequence)
     if bos:
@@ -37,7 +48,7 @@ def basic_tokenizer(sequence, bos=True, eos=True):
     return sequence.lower().split()
 
 
-def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size, tokenizer=None, bos=True, eos=True):
+def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size=40000, tokenizer=None, bos=True, eos=True):
     """Create vocabulary file (if it does not exist yet) from data file.
 
     Original taken from
@@ -48,11 +59,11 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size, tokenizer
         vocab = {}
         with codecs_open(data_path, "rb", encoding="utf-8") as f:
             for line in f.readlines():
-                line = line.split('\t')
-                if len(line) > 1:
-                    line = line[1].strip()
-                else:
-                    line = line[0].strip()
+                #line = line.split('\t')
+                #if len(line) > 1:
+                #    line = line[1].strip()
+                #else:
+                #    line = line[0].strip()
                 tokens = tokenizer(line) if tokenizer else basic_tokenizer(line, bos, eos)
                 for w in tokens:
                     word = re.sub(_DIGIT_RE, NUM_TOKEN, w)
@@ -109,11 +120,11 @@ def data_to_token_ids(data_path, target_path, vocabulary_path, tokenizer=None, b
         with codecs_open(data_path, "rb", encoding="utf-8") as data_file:
             with codecs_open(target_path, "wb", encoding="utf-8") as tokens_file:
                 for line in data_file:
-                    line = line.split('\t')
-                    if len(line) > 1:
-                        line = line[1].strip()
-                    else:
-                        line = line[0].strip()
+                    #line = line.split('\t')
+                    #if len(line) > 1:
+                    #    line = line[1].strip()
+                    #else:
+                    #    line = line[0].strip()
                     token_ids = sentence_to_token_ids(line, vocab, tokenizer, bos, eos)
                     tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
@@ -124,7 +135,6 @@ def shuffle_split(X, y, a=None, train_size=10000, shuffle=True):
     _y = np.array(y)
     assert _X.shape[0] == _y.shape[0]
 
-
     _a = [None] * _y.shape[0]
     if a is not None and len(a) == len(y):
         _a = np.array(a)
@@ -132,7 +142,7 @@ def shuffle_split(X, y, a=None, train_size=10000, shuffle=True):
         _a = np.reshape(np.exp(_a) / np.sum(np.exp(_a)), (_y.shape[0], 1))
         assert _a.shape[0] == _y.shape[0]
 
-    print("Shuffling and splitting data...")
+    print "Splitting data...",
     # split train-test
     data = np.array(zip(_X, _y, _a))
     data_size = _y.shape[0]
@@ -144,6 +154,7 @@ def shuffle_split(X, y, a=None, train_size=10000, shuffle=True):
         shuffled_data = data[shuffle_indices]
     else:
         shuffled_data = data
+    print "\t%d for train, %d for test" % (train_size, data_size - train_size)
     return shuffled_data[:train_size], shuffled_data[train_size:]
 
 
@@ -158,10 +169,10 @@ def read_data(source_path, target_path, sent_len, attention_path=None, train_siz
     with codecs_open(source_path, mode="r", encoding="utf-8") as source_file:
         with codecs_open(target_path, mode="r", encoding="utf-8") as target_file:
             source, target = source_file.readline(), target_file.readline()
-            counter = 0
-            print("Loading data...")
+            #counter = 0
+            print "Loading data...",
             while source and target:
-                counter += 1
+                #counter += 1
                 #if counter % 1000 == 0:
                 #    print("  reading data line %d" % counter)
                 #    sys.stdout.flush()
@@ -170,11 +181,15 @@ def read_data(source_path, target_path, sent_len, attention_path=None, train_siz
                     source_ids += [PAD_ID] * (sent_len - len(source_ids))
                 assert len(source_ids) == sent_len
 
+                #target = target.split('\t')[0].strip()
                 target_ids = [np.float32(y.strip()) for y in target.split()]
 
                 _X.append(source_ids)
                 _y.append(target_ids)
                 source, target = source_file.readline(), target_file.readline()
+
+    assert len(_X) == len(_y)
+    print "\t%d examples found." % len(_y)
 
     _a = None
     if attention_path is not None:
@@ -184,6 +199,73 @@ def read_data(source_path, target_path, sent_len, attention_path=None, train_siz
 
     return shuffle_split(_X, _y, a=_a, train_size=train_size, shuffle=shuffle)
 
+
+def shuffle_split_contextwise(X, y, a=None, train_size=10000, shuffle=True):
+    """Shuffle and split data into train and test subset"""
+
+    _left = np.array(X['left'])
+    _middle = np.array(X['middle'])
+    _right = np.array(X['right'])
+    _y = np.array(y)
+
+    _a = [None] * _y.shape[0]
+    if a is not None and len(a) == len(y):
+        _a = np.array(a)
+        # compute softmax
+        _a = np.reshape(np.exp(_a) / np.sum(np.exp(_a)), (_y.shape[0], 1))
+        assert _a.shape[0] == _y.shape[0]
+
+    print "Splitting data...",
+    # split train-test
+    data = np.array(zip(_left, _middle, _right, _y, _a))
+    data_size = _y.shape[0]
+    if train_size > data_size:
+        train_size = int(data_size * 0.9)
+    if shuffle:
+        np.random.seed(RANDOM_SEED)
+        shuffle_indices = np.random.permutation(np.arange(data_size))
+        shuffled_data = data[shuffle_indices]
+    else:
+        shuffled_data = data
+    print "\t%d for train, %d for test" % (train_size, data_size - train_size)
+    return shuffled_data[:train_size], shuffled_data[train_size:]
+
+
+def read_data_contextwise(source_path, target_path, sent_len, attention_path=None, train_size=10000, shuffle=True):
+    """Read source(x), target(y) and attention if given.
+
+    Original taken from
+    https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/rnn/translate/translate.py
+    """
+    print "Loading data...",
+    _X = {'left': [], 'middle': [], 'right': []}
+    for context in _X.keys():
+        path = '%s.%s' % (source_path, context)
+        with codecs_open(path, mode="r", encoding="utf-8") as source_file:
+            for source in source_file.readlines():
+                source_ids = [np.int64(x.strip()) for x in source.split()]
+                if sent_len > len(source_ids):
+                    source_ids += [PAD_ID] * (sent_len - len(source_ids))
+                assert len(source_ids) == sent_len
+                _X[context].append(source_ids)
+    assert len(_X['left']) == len(_X['middle'])
+    assert len(_X['right']) == len(_X['middle'])
+
+    _y = []
+    with codecs_open(target_path, mode="r", encoding="utf-8") as target_file:
+        for target in target_file.readlines():
+            target_ids = [np.float32(y.strip()) for y in target.split()]
+            _y.append(target_ids)
+    assert len(_X['left']) == len(_y)
+    print "\t%d examples found." % len(_y)
+
+    _a = None
+    if attention_path is not None:
+        with codecs_open(attention_path, mode="r", encoding="utf-8") as att_file:
+            _a = [np.float32(att.strip()) for att in att_file.readlines()]
+            assert len(_a) == len(_y)
+
+    return shuffle_split_contextwise(_X, _y, a=_a, train_size=train_size, shuffle=shuffle)
 
 
 
@@ -197,7 +279,7 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
     data_size = len(data)
     num_batches_per_epoch = int(np.ceil(float(data_size)/batch_size))
     for epoch in range(num_epochs):
-        # Shuffle the data at each epoch
+        # Shuffle data at each epoch
         if shuffle:
             #np.random.seed(RANDOM_SEED)
             shuffle_indices = np.random.permutation(np.arange(data_size))
@@ -266,11 +348,23 @@ def prepare_pretrained_embedding(fname, word2id):
 
 
 
+def offset(array, pre, post):
+    ret = np.array(array)
+    ret = np.insert(ret, 0, pre)
+    ret = np.append(ret, post)
+    return ret
+
+def calc_auc_pr(precision, recall):
+    assert len(precision) == len(recall)
+    return np.trapz(offset(precision, 1, 0), x=offset(recall, 0, 1), dx=5)
+
+
+
 
 def prepare_ids(data_dir, vocab_path):
     for context in ['left', 'middle', 'right', 'txt']:
-        data_path = os.path.join(data_dir, 'clean.%s' % context)
-        target_path = os.path.join(data_dir, 'ids.%s' % context)
+        data_path = os.path.join(data_dir, 'mlmi', 'source.%s' % context)
+        target_path = os.path.join(data_dir, 'mlmi', 'ids.%s' % context)
         if context == 'left':
             bos, eos = True, False
         elif context == 'middle':
@@ -285,30 +379,31 @@ def prepare_ids(data_dir, vocab_path):
 def main():
     data_dir = os.path.join(THIS_DIR, 'data')
 
-
-    # text data
-    vocab_path = os.path.join(data_dir, 'vocab.txt')
-    data_path = os.path.join(data_dir, 'clean.txt')
-    max_vocab_size = 40000
+    # multi-label multi-instance (MLMI-CNN) dataset
+    vocab_path = os.path.join(data_dir, 'mlmi', 'vocab.txt')
+    data_path = os.path.join(data_dir, 'mlmi', 'source.txt')
+    max_vocab_size = 36500
     create_vocabulary(vocab_path, data_path, max_vocab_size)
     prepare_ids(data_dir, vocab_path)
 
-
     # pretrained embeddings
-    word2id, _ = initialize_vocabulary(vocab_path)
     embedding_path = os.path.join(THIS_DIR, 'word2vec', 'GoogleNews-vectors-negative300.bin')
-    embedding = prepare_pretrained_embedding(embedding_path, word2id)
-    np.save(os.path.join(data_dir, 'emb.npy'), embedding)
+    if os.path.exists(embedding_path):
+        word2id, _ = initialize_vocabulary(vocab_path)
+        embedding = prepare_pretrained_embedding(embedding_path, word2id)
+        np.save(os.path.join(data_dir, 'mlmi', 'emb.npy'), embedding)
+    else:
+        print "Pretrained embeddings file %s not found." % embedding_path
 
-
-    # er data
-    vocab_er = os.path.join(data_dir, 'vocab.er')
-    data_er = os.path.join(data_dir, 'clean.er')
-    target_er = os.path.join(data_dir, 'ids.er')
-    max_vocab_size = 8500
+    # single-label single-instance (ER-CNN) dataset
+    vocab_er = os.path.join(data_dir, 'er', 'vocab.txt')
+    data_er = os.path.join(data_dir, 'er', 'source.txt')
+    target_er = os.path.join(data_dir, 'er', 'ids.txt')
+    max_vocab_size = 11500
     tokenizer = lambda x: x.split()
     create_vocabulary(vocab_er, data_er, max_vocab_size, tokenizer=tokenizer)
     data_to_token_ids(data_er, target_er, vocab_er, tokenizer=tokenizer)
+
 
 
 if __name__ == '__main__':
