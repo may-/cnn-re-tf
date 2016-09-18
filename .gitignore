@@ -2,7 +2,6 @@
 .DS_Store
 
 *.pyc
-*.ipynb
 .ipynb_checkpoints/
 
 data/*.cPickle

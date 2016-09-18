@@ -60,19 +60,19 @@ It creates `vocab.txt`, `ids.txt` and `emb.npy` files.
 
 - Single-label single-instance learning on the provided dataset:
     ```sh
-    python ./train.py --sent_len=3 --vocab_size=11208 --num_classes=2 \
+    python ./train.py --sent_len=3 --vocab_size=11208 --num_classes=2 --train_size=15000 \
     --data_dir=./data/er --attention=False --multi_label=False --use_pretrain=False
     ```
 
 - Multi-label multi-instance learning on the provided dataset:
     ```sh
-    python ./train.py --sent_len=255 --vocab_size=36112 --num_classes=23 \
+    python ./train.py --sent_len=255 --vocab_size=36112 --num_classes=23 --train_size=10000 \
     --data_dir=./data/mlmi --attention=True --multi_label=True --use_pretrain=True
     ```
     
 - Context-wise learning on the provided dataset:
     ```sh
-    python ./train_context.py --sent_len=102 --vocab_size=36112 --num_classes=23 \
+    python ./train_context.py --sent_len=102 --vocab_size=36112 --num_classes=23 --train_size=10000 \
     --data_dir=./data/mlmi --attention=True --multi_label=True --use_pretrain=True
     ```
 
@@ -84,6 +84,7 @@ may cause an error. If you want to train the model on another dataset, please ch
 ```sh
 python ./eval.py --train_dir=./train/1473898241
 ```
+Replace the `--train_dir` with the output from the training.
 
 
 ### Run TensorBoard
@@ -91,6 +92,15 @@ python ./eval.py --train_dir=./train/1473898241
 ```sh
 tensorboard --logdir=./train/1473898241
 ```
+
+## Results
+
+|         |  P |  R |  F |AUC |
+|--------:|:--:|:--:|:--:|:--:|
+|  ER-CNN |0.93|0.89|0.91|0.92|
+| MLMI-CNN|0.79|0.65|0.71|0.73| 
+|MLMI-CONT|0.82|0.75|0.78|0.79|
+
 
 
 ## References

@@ -112,7 +112,7 @@ def train(train_data, test_data):
                 return (np.mean(dev_loss), np.mean(dev_auc), np.mean(dev_f1_score))
 
             # train loop
-            print "\nStart training\n"
+            print "\nStart training (save checkpoints in %s)\n" % out_dir
             train_loss = []
             train_auc = []
             train_f1_score = []

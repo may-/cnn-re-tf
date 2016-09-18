@@ -27,7 +27,7 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 
 # eval parameters
 tf.app.flags.DEFINE_string('train_dir', os.path.join(this_dir, 'model'), 'Directory of the checkpoint files')
-tf.app.flags.DEFINE_boolean('save_fig', True, 'Whether save the visualized image or not')
+#tf.app.flags.DEFINE_boolean('save_fig', False, 'Whether save the visualized image or not')
 
 
 def evaluate(eval_data, config):
@@ -90,7 +90,8 @@ def main(argv=None):
     if restore_param.has_key('contextwise') and restore_param['contextwise']:
         source_path = os.path.join(restore_param['data_dir'], "ids")
         target_path = os.path.join(restore_param['data_dir'], "target.txt")
-        _, data = util.read_data_contextwise(source_path, target_path, restore_param['sent_len'])
+        _, data = util.read_data_contextwise(source_path, target_path, restore_param['sent_len'],
+                                             train_size=restore_param['train_size'])
     else:
         source_path = os.path.join(restore_param['data_dir'], "ids.txt")
         target_path = os.path.join(restore_param['data_dir'], "target.txt")
@@ -101,17 +102,17 @@ def main(argv=None):
     util.dump_to_file(os.path.join(FLAGS.train_dir, 'results.cPickle'), {'precision': pre, 'recall': rec})
 
 
-    if FLAGS.save_fig:
-        import matplotlib.pyplot as plt
-        plt.style.use('ggplot')
+    #if FLAGS.save_fig:
+    #    import matplotlib.pyplot as plt
+    #    plt.style.use('ggplot')
 
         # precision-recall curve
         #plt.plot(util.offset(rec, 0, 1), util.offset(pre, 1, 0))
-        plt.plot(rec, pre)
-        plt.title('Precision-Recall Curve')
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
-        plt.savefig(os.path.join(FLAGS.train_dir, 'pr_curve.svg'))
+    #    plt.plot(rec, pre)
+    #    plt.title('Precision-Recall Curve')
+    #    plt.xlabel('Recall')
+    #    plt.ylabel('Precision')
+    #    plt.savefig(os.path.join(FLAGS.train_dir, 'pr_curve.svg'))
 
 
 

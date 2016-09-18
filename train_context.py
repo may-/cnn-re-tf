@@ -17,6 +17,7 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 tf.app.flags.DEFINE_string('data_dir', os.path.join(this_dir, 'data', 'mlmi'), 'Directory of the data')
 tf.app.flags.DEFINE_string('train_dir', os.path.join(this_dir, 'train'),
                            'Directory to save training checkpoint files')
+tf.app.flags.DEFINE_integer('train_size', 100000, 'Number of training examples')
 tf.app.flags.DEFINE_integer('num_epochs', 10, 'Number of epochs to run')
 tf.app.flags.DEFINE_boolean('use_pretrain', False, 'Use word2vec pretrained embeddings or not')
 tf.app.flags.DEFINE_boolean('log_device_placement', False, 'Whether log device information in summary')
@@ -120,7 +121,7 @@ def train(train_data, test_data):
                 return (np.mean(dev_loss), np.mean(dev_auc), np.mean(dev_f1_score))
 
             # train loop
-            print "\nStart training\n"
+            print "\nStart training (save checkpoints in %s)\n" % out_dir
             train_loss = []
             train_auc = []
             train_f1_score = []
@@ -238,7 +239,8 @@ def main(argv=None):
             attention_path = os.path.join(FLAGS.data_dir, 'source.att')
         else:
             raise ValueError("Attention file %s not found.", os.path.join(FLAGS.data_dir, 'source.att'))
-    train_data, test_data = util.read_data_contextwise(source_path, target_path, FLAGS.sent_len, attention_path)
+    train_data, test_data = util.read_data_contextwise(source_path, target_path, FLAGS.sent_len,
+                                                       attention_path=attention_path, train_size=FLAGS.train_size)
     train(train_data, test_data)
 
 
