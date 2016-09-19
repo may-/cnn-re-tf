@@ -1,4 +1,4 @@
-# Attention-based Convolutional Neural Network for Relation Extraction
+# Convolutional Neural Network for Relation Extraction
 
 **Note:** This project is mostly based on https://github.com/yuhaozhang/sentence-convnet
 
@@ -15,11 +15,12 @@ To download wikipedia articles (`distant_supervision.py`)
 
 - [Beautifulsoup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
 - [Pandas](http://pandas.pydata.org/)
+- [Stanfoed NER](http://nlp.stanford.edu/software/CRF-NER.shtml)
 
-To visualize the result (`eval.py`)
+To visualize the results (`visualize.ipynb`)
 
-- [Matplotlib](http://matplotlib.org/)
-
+- [Matplotlib](matplotlib.org)
+- [Scikit-learn](http://scikit-learn.org/)
 
 
 ## Data
@@ -29,13 +30,16 @@ To visualize the result (`eval.py`)
     ├── ...
     ├── word2vec
     └── data
-        ├── er              # single-label single-instance dataset
-        │   ├── source.txt  #   source sentences
-        │   └── target.txt  #   target labels
+        ├── er              # binay-classification dataset
+        │   ├── source.txt      #   source sentences
+        │   └── target.txt      #   target labels
         └── mlmi            # multi-label multi-instance dataset
-            ├── source.att  #   attention
-            ├── source.txt  #   source sentences
-            └── target.txt  #   target labels
+            ├── source.att      #   attention
+            ├── source.left     #   left context
+            ├── source.middle   #   middle context
+            ├── source.right    #   right context
+            ├── source.txt      #   source sentences
+            └── target.txt      #   target labels
     ```    
     To reproduce: 
     ```
@@ -58,19 +62,19 @@ It creates `vocab.txt`, `ids.txt` and `emb.npy` files.
 
 ### Training
 
-- Single-label single-instance learning on the provided dataset:
+- Single-label single-instance learning (ER-CNN):
     ```sh
     python ./train.py --sent_len=3 --vocab_size=11208 --num_classes=2 --train_size=15000 \
     --data_dir=./data/er --attention=False --multi_label=False --use_pretrain=False
     ```
 
-- Multi-label multi-instance learning on the provided dataset:
+- Multi-label multi-instance learning (MLMI-CNN):
     ```sh
     python ./train.py --sent_len=255 --vocab_size=36112 --num_classes=23 --train_size=10000 \
     --data_dir=./data/mlmi --attention=True --multi_label=True --use_pretrain=True
     ```
     
-- Context-wise learning on the provided dataset:
+- Context-wise learning (MLMI-CONT):
     ```sh
     python ./train_context.py --sent_len=102 --vocab_size=36112 --num_classes=23 --train_size=10000 \
     --data_dir=./data/mlmi --attention=True --multi_label=True --use_pretrain=True
@@ -78,6 +82,7 @@ It creates `vocab.txt`, `ids.txt` and `emb.npy` files.
 
 **Caution:** A wrong value for input-data-dependent options (`sent_len`, `vocab_size` and `num_class`) 
 may cause an error. If you want to train the model on another dataset, please check these values.
+
 
 ### Evaluation
 
@@ -93,6 +98,12 @@ Replace the `--train_dir` with the output from the training.
 tensorboard --logdir=./train/1473898241
 ```
 
+
+## Architecture
+
+![CNN Architecture](img/cnn.pdf)
+
+
 ## Results
 
 |         |  P |  R |  F |AUC |
@@ -101,12 +112,17 @@ tensorboard --logdir=./train/1473898241
 | MLMI-CNN|0.79|0.65|0.71|0.73| 
 |MLMI-CONT|0.82|0.75|0.78|0.79|
 
+![Loss](img/loss.pdf)
+![AUC](img/auc.pdf)
+![PR_Curve](img/pr-curve.pdf)
 
 
 ## References
 
-* https://github.com/yuhaozhang/sentence-convnet
-* https://github.com/dennybritz/cnn-text-classification-tf
+* http://github.com/yuhaozhang/sentence-convnet
+* http://github.com/dennybritz/cnn-text-classification-tf
 * http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/
 * http://tkengo.github.io/blog/2016/03/14/text-classification-by-cnn/
-
+* Adel et al. [Comparing Convolutional Neural Networks to Traditional Models for Slot Filling](http://arxiv.org/abs/1603.05157) NAACL 2016
+* Nguyen and Grishman. [Relation Extraction: Perspective from Convolutional Neural Networks](http://www.cs.nyu.edu/~thien/pubs/vector15.pdf) NAACL 2015
+* Lin et al. [Neural Relation Extraction with Selective Attention over Instances](http://www.aclweb.org/anthology/P/P16/P16-1200.pdf) ACL 2016
