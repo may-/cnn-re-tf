@@ -62,7 +62,7 @@ It creates `vocab.txt`, `ids.txt` and `emb.npy` files.
 
 ### Training
 
-- Single-label single-instance learning (ER-CNN):
+- Binary classification learning (ER-CNN):
     ```sh
     python ./train.py --sent_len=3 --vocab_size=11208 --num_classes=2 --train_size=15000 \
     --data_dir=./data/er --attention=False --multi_label=False --use_pretrain=False
@@ -101,7 +101,7 @@ tensorboard --logdir=./train/1473898241
 
 ## Architecture
 
-![CNN Architecture](img/cnn.pdf)
+![CNN Architecture](img/cnn.png)
 
 
 ## Results
@@ -112,9 +112,14 @@ tensorboard --logdir=./train/1473898241
 | MLMI-CNN|0.79|0.65|0.71|0.73| 
 |MLMI-CONT|0.82|0.75|0.78|0.79|
 
-![Loss](img/loss.pdf)
-![AUC](img/auc.pdf)
-![PR_Curve](img/pr-curve.pdf)
+![F1](img/f1.png)
+![AUC](img/auc.png)
+![Loss](img/loss.png)
+![PR_Curve](img/pr_curve.png)
+![ER-CNN Embeddings](img/emb_er.png)
+![MLMI-CNN Embeddings](img/emb_cnn.png)
+![MLMI-CONT Left Embeddings](img/emb_left.png)
+![MLMI-CONT Right Embeddings](img/emb_right.png)
 
 
 ## References
