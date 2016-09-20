@@ -15,7 +15,7 @@ To download wikipedia articles (`distant_supervision.py`)
 
 - [Beautifulsoup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
 - [Pandas](http://pandas.pydata.org/)
-- [Stanfoed NER](http://nlp.stanford.edu/software/CRF-NER.shtml)
+- [Stanford NER](http://nlp.stanford.edu/software/CRF-NER.shtml)
 
 To visualize the results (`visualize.ipynb`)
 
@@ -62,7 +62,7 @@ It creates `vocab.txt`, `ids.txt` and `emb.npy` files.
 
 ### Training
 
-- Binary classification learning (ER-CNN):
+- Binary classification (ER-CNN):
     ```sh
     python ./train.py --sent_len=3 --vocab_size=11208 --num_classes=2 --train_size=15000 \
     --data_dir=./data/er --attention=False --multi_label=False --use_pretrain=False
@@ -74,7 +74,7 @@ It creates `vocab.txt`, `ids.txt` and `emb.npy` files.
     --data_dir=./data/mlmi --attention=True --multi_label=True --use_pretrain=True
     ```
     
-- Context-wise learning (MLMI-CONT):
+- Multi-label multi-instance Context-wise learning (MLMI-CONT):
     ```sh
     python ./train_context.py --sent_len=102 --vocab_size=36112 --num_classes=23 --train_size=10000 \
     --data_dir=./data/mlmi --attention=True --multi_label=True --use_pretrain=True
