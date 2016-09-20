@@ -53,33 +53,33 @@ def evaluate(eval_data, config):
             #embeddings = sess.run(tf.all_variables())[0]
 
             print "\nStart evaluation\n"
-            losses = []
-            precision = []
-            recall = []
-            batches = util.batch_iter(eval_data, batch_size=config['batch_size'], num_epochs=1, shuffle=False)
-            for batch in batches:
-                if config.has_key('contextwise') and config['contextwise']:
-                    left_batch, middle_batch, right_batch, y_batch, _ = zip(*batch)
-                    feed = {m.left: np.array(left_batch),
-                            m.middle: np.array(middle_batch),
-                            m.right: np.array(right_batch),
-                            m.labels: np.array(y_batch)}
-                else:
-                    x_batch, y_batch, _ = zip(*batch)
-                    feed = {m.inputs: np.array(x_batch), m.labels: np.array(y_batch)}
-                loss, eval = sess.run([m.total_loss, m.eval_op], feed_dict=feed)
-                losses.append(loss)
-                pre, rec = zip(*eval)
-                precision.append(pre)
-                recall.append(rec)
+            #losses = []
+            #precision = []
+            #recall = []
+            #batches = util.batch_iter(eval_data, batch_size=config['batch_size'], num_epochs=1, shuffle=False)
+            #for batch in batches:
+            if config.has_key('contextwise') and config['contextwise']:
+                left_batch, middle_batch, right_batch, y_batch, _ = zip(*eval_data)
+                feed = {m.left: np.array(left_batch),
+                        m.middle: np.array(middle_batch),
+                        m.right: np.array(right_batch),
+                        m.labels: np.array(y_batch)}
+            else:
+                x_batch, y_batch, _ = zip(*eval_data)
+                feed = {m.inputs: np.array(x_batch), m.labels: np.array(y_batch)}
+            loss, eval = sess.run([m.total_loss, m.eval_op], feed_dict=feed)
+            #losses.append(loss)
+            pre, rec = zip(*eval)
+            #precision.append(pre)
+            #recall.append(rec)
 
-            avg_precision = np.mean(np.array(precision), axis=0)
-            avg_recall = np.mean(np.array(recall), axis=0)
-            auc = util.calc_auc_pr(avg_precision, avg_recall)
-            f1 = (2.0 * avg_precision[5] * avg_recall[5]) / (avg_precision[5] + avg_recall[5])
-            print '%s: loss = %.6f, f1 = %.4f, auc = %.4f' % (datetime.now(), np.mean(losses), f1, auc)
+            avg_precision = np.mean(np.array(pre))
+            avg_recall = np.mean(np.array(rec))
+            auc = util.calc_auc_pr(pre, rec)
+            f1 = (2.0 * pre[5] * rec[5]) / (pre[5] + rec[5])
+            print '%s: loss = %.6f, f1 = %.4f, auc = %.4f' % (datetime.now(), loss, f1, auc)
 
-    return avg_precision, avg_recall
+    return pre, rec
 
 
 

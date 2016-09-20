@@ -33,12 +33,6 @@ THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 RANDOM_SEED = 1234
 
 
-""" Distant Supervision
-
-    Source: Wikidata (one of a successor of Freebase)
-    Target: Wikipedia articles
-"""
-
 def basic_tokenizer(sequence, bos=True, eos=True):
     sequence = re.sub(r'\s{2}', ' ' + EOS_TOKEN + ' ' + BOS_TOKEN + ' ', sequence)
     if bos:
@@ -59,11 +53,6 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size=40000, tok
         vocab = {}
         with codecs_open(data_path, "rb", encoding="utf-8") as f:
             for line in f.readlines():
-                #line = line.split('\t')
-                #if len(line) > 1:
-                #    line = line[1].strip()
-                #else:
-                #    line = line[0].strip()
                 tokens = tokenizer(line) if tokenizer else basic_tokenizer(line, bos, eos)
                 for w in tokens:
                     word = re.sub(_DIGIT_RE, NUM_TOKEN, w)
@@ -120,11 +109,6 @@ def data_to_token_ids(data_path, target_path, vocabulary_path, tokenizer=None, b
         with codecs_open(data_path, "rb", encoding="utf-8") as data_file:
             with codecs_open(target_path, "wb", encoding="utf-8") as tokens_file:
                 for line in data_file:
-                    #line = line.split('\t')
-                    #if len(line) > 1:
-                    #    line = line[1].strip()
-                    #else:
-                    #    line = line[0].strip()
                     token_ids = sentence_to_token_ids(line, vocab, tokenizer, bos, eos)
                     tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
@@ -232,7 +216,8 @@ def shuffle_split_contextwise(X, y, a=None, train_size=10000, shuffle=True):
 
 
 def read_data_contextwise(source_path, target_path, sent_len, attention_path=None, train_size=10000, shuffle=True):
-    """Read source(x), target(y) and attention if given.
+    """Read source file and pad the sequence to sent_len,
+       combine them with target (and attention if given).
 
     Original taken from
     https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/rnn/translate/translate.py
@@ -270,7 +255,7 @@ def read_data_contextwise(source_path, target_path, sent_len, attention_path=Non
 
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
-    """Generates a batch iterator for a dataset.
+    """Generates a batch iterator.
 
     Original taken from
     https://github.com/dennybritz/cnn-text-classification-tf/blob/master/data_helpers.py

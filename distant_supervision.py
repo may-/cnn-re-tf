@@ -58,7 +58,7 @@ def sanitize(string):
 
 
 def download_wiki_articles(doc_id, limit=100, retry=False):
-    """download wikipedia article via wikipedia API"""
+    """download wikipedia article via Mediawiki API"""
     base_path = "http://en.wikipedia.org/w/api.php?format=xml&action=query"
     query = base_path + "&list=random&rnnamespace=0&rnlimit=%d" % limit
     r = None
@@ -111,7 +111,7 @@ def exec_ner(filenames):
 
 
 def read_ner_output(filenames):
-    """read NER output files and store them in dataframe"""
+    """read NER output files and store them in a pandas DataFrame"""
     rows = []
     for filename in filenames:
         path = os.path.join(ner_dir, filename)
@@ -179,8 +179,7 @@ def read_ner_output(filenames):
 
 
 def name2qid(name, tag, alias=False, retry=False):
-    """
-    find QID (and Freebase ID if given) by name
+    """find QID (and Freebase ID if given) by name
 
     >>> name2qid('Barack Obama', 'PERSON')        # perfect match
     (u'Q76', u'/m/02mjmr')
@@ -238,8 +237,7 @@ def name2qid(name, tag, alias=False, retry=False):
 
 
 def search_property(qid1, qid2, retry=False):
-    """
-    find property (and schema.org relation if given)
+    """find property (and schema.org relation if given)
 
     >>> search_property('Q76', 'Q30') # Q76: Barack Obama, Q30: United States
     [(u'P27', u'country of citizenship', u'nationality')]
@@ -289,8 +287,7 @@ def search_property(qid1, qid2, retry=False):
 
 
 def slot_filling(qid, pid, tag, retry=False):
-    """
-    find slotfiller
+    """find slotfiller
 
     >>> slot_filling('Q76', 'P27', 'LOCATION') # Q76: Barack Obama, P27: country of citizenship
     [(u'United States', u'Q30', u'/m/09c7w0')]
@@ -410,7 +407,8 @@ def loop(step, doc_id, limit, entities, relations, counter):
     return doc_id, entities, relations, counter
 
 
-def positive_relations(entities, relations):
+def extract_relations(entities, relations):
+    """extract relations"""
     rows = []
     for k, v in relations.iteritems():
         if v is not None and len(v) > 0:
@@ -465,16 +463,18 @@ def positive_examples():
     positive_df = pd.concat(positive_data, axis=0, ignore_index=True)
     positive_df[col].to_csv(os.path.join(data_dir, 'positive_candidates.tsv'), sep='\t', encoding='utf-8')
 
-    # positive relations
-    pos_rel = positive_relations(entities, relations)
+    # save relations
+    pos_rel = extract_relations(entities, relations)
     pos_rel.to_csv(os.path.join(data_dir, 'positive_relations.tsv'), sep='\t', encoding='utf-8')
 
 
 def negative_examples():
+    negative = {}
 
     unique_pair = set([])
     neg_candidates = []
 
+    #TODO: replace with positive_relations.tsv
     entities = util.load_from_dump(os.path.join(data_dir, "entities.cPickle"))
     relations = util.load_from_dump(os.path.join(data_dir, "relations.cPickle"))
 
@@ -511,6 +511,10 @@ def negative_examples():
     neg_examples[col].to_csv(os.path.join(data_dir, 'negative_candidates.tsv'), sep='\t', encoding='utf-8')
 
 
+    # save relations
+    #pos_rel = extract_relations(entities, negative)
+    #pos_rel.to_csv(os.path.join(data_dir, 'positive_relations.tsv'), sep='\t', encoding='utf-8')
+
 
 def load_gold_patterns():
     def clean_str(string):
@@ -539,6 +543,19 @@ def load_gold_patterns():
     return pd.DataFrame({'pattern': g_patterns, 'label': g_labels})
 
 
+def score_reliability(gold_patterns, sent, rel, subj, obj):
+    for name, group in gold_patterns.groupby('label'):
+        if name in [r.strip() for r in rel.split(',')]:
+            for i, g in group.iterrows():
+                pattern = g['pattern']
+                pattern = re.sub(r'\$ARG(0|1)', subj, pattern, count=1)
+                pattern = re.sub(r'\$ARG(0|2)', obj, pattern, count=1)
+                match = re.search(pattern, sent)
+                if match:
+                    return 1.0
+    return 0.0
+
+
 def extract_positive():
     if not os.path.exists(os.path.join(data_dir, 'mlmi')):
         os.mkdir(os.path.join(data_dir, 'mlmi'))
@@ -549,7 +566,7 @@ def extract_positive():
     gold_patterns = load_gold_patterns()
 
 
-    # read dumps
+    #TODO: replace with negative_relations.tsv
     entities = util.load_from_dump(os.path.join(data_dir, "entities.cPickle"))
     relations = util.load_from_dump(os.path.join(data_dir, "relations.cPickle"))
 
@@ -571,42 +588,44 @@ def extract_positive():
     num_er = 0
     with open(os.path.join(data_dir, 'er', 'source.txt'), 'w', encoding='utf-8') as f:
         for idx, row in positive_df.iterrows():
-            s = row['sent']
 
-            subj = '<' + entities[row['subj'].encode('utf-8')][0] + '>'
-            obj = '<' + entities[row['obj'].encode('utf-8')][0] + '>'
+            # restore relation
             rel = ['<' + l.strip() + '>' for l in row['rel'].split(',') if l.strip() in rel_c_top]
-            left = s[:row['subj_begin']] + subj
-            middle = s[row['subj_end']:row['obj_begin']]
-            right = obj + s[row['obj_end']:]
-            text = left.strip() + ' ' + middle.strip() + ' ' + right.strip()
+            if len(rel) > 0:
 
-            assert s[row['subj_begin']:row['subj_end']] == row['subj']
-            assert s[row['obj_begin']:row['obj_end']] == row['obj']
+                s = row['sent']
+                subj = '<' + entities[row['subj'].encode('utf-8')][0] + '>'
+                obj = '<' + entities[row['obj'].encode('utf-8')][0] + '>'
+                left = s[:row['subj_begin']] + subj
+                middle = s[row['subj_end']:row['obj_begin']]
+                right = obj + s[row['obj_end']:]
+                text = left.strip() + ' ' + middle.strip() + ' ' + right.strip()
 
-            if len(left.split()) < 100 and len(middle.split()) < 100 and len(right.split()) < 100 and len(rel) > 0:
+                # check if begin-end position is correct
+                assert s[row['subj_begin']:row['subj_end']] == row['subj']
+                assert s[row['obj_begin']:row['obj_end']] == row['obj']
 
-                positive_df.set_value(idx, 'right', right.strip())
-                positive_df.set_value(idx, 'middle', middle.strip())
-                positive_df.set_value(idx, 'left', left.strip())
-                positive_df.set_value(idx, 'clean', text.strip())
+                # MLMI dataset
+                # filter out too long sentences
+                if len(left.split()) < 100 and len(middle.split()) < 100 and len(right.split()) < 100:
 
-                label = ['0'] * len(rel_c_top)
-                for u in row['rel'].split(','):
-                    if u.strip() in rel_c_top:
-                        label[rel_c_top.index(u.strip())] = '1'
-                positive_df.set_value(idx, 'label', ' '.join(label))
+                    positive_df.set_value(idx, 'right', right.strip())
+                    positive_df.set_value(idx, 'middle', middle.strip())
+                    positive_df.set_value(idx, 'left', left.strip())
+                    positive_df.set_value(idx, 'clean', text.strip())
 
-                for name, group in gold_patterns.groupby('label'):
-                    if name in [r.strip() for r in row['rel'].split(',')]:
-                        for i, g in group.iterrows():
-                            pattern = g['pattern']
-                            pattern = re.sub(r'\$ARG(0|1)', row['subj'], pattern, count=1)
-                            pattern = re.sub(r'\$ARG(0|2)', row['obj'], pattern, count=1)
-                            match = re.search(pattern, s) #s = row['sent']
-                            if match:
-                                positive_df.set_value(idx, 'attention', 1.0)
+                    # binarize label
+                    label = ['0'] * len(rel_c_top)
+                    for u in row['rel'].split(','):
+                        if u.strip() in rel_c_top:
+                            label[rel_c_top.index(u.strip())] = '1'
+                    positive_df.set_value(idx, 'label', ' '.join(label))
 
+                    # score reliability if positive
+                    reliability = score_reliability(gold_patterns, s, row['rel'], row['subj'], row['obj'])
+                    positive_df.set_value(idx, 'attention', reliability)
+
+                # ER dataset
                 for r in rel:
                     num_er += 1
                     f.write(subj + ' ' + r + ' ' + obj + '\n')
