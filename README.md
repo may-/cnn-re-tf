@@ -115,10 +115,10 @@ tensorboard --logdir=./train/1473898241
 
 ![F1](img/f1.png)
 ![AUC](img/auc.png)
-![Loss](img/loss.svg)
+![Loss](img/loss.png)
 ![PR_Curve](img/pr_curve.png)
 ![ER-CNN Embeddings](img/emb_er.png)
-![MLMI-CNN Embeddings](img/emb_cnn.png)
+![MLMI-CNN Embeddings](img/emb_mlmi.png)
 ![MLMI-CONT Left Embeddings](img/emb_left.png)
 ![MLMI-CONT Right Embeddings](img/emb_right.png)
 
