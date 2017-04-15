@@ -69,7 +69,6 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size=40000, tok
                     vocab_file.write(w + b"\n")
 
 
-
 def initialize_vocabulary(vocabulary_path):
     """Initialize vocabulary from file.
 
@@ -253,7 +252,6 @@ def read_data_contextwise(source_path, target_path, sent_len, attention_path=Non
     return shuffle_split_contextwise(_X, _y, a=_a, train_size=train_size, shuffle=shuffle)
 
 
-
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """Generates a batch iterator.
 
@@ -277,16 +275,17 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
             yield shuffled_data[start_index:end_index]
 
 
-
 def dump_to_file(filename, obj):
     with open(filename, 'wb') as outfile:
         pickle.dump(obj, file=outfile)
     return
 
+
 def load_from_dump(filename):
     with open(filename, 'rb') as infile:
         obj = pickle.load(infile)
     return obj
+
 
 def _load_bin_vec(fname, vocab):
     """
@@ -315,11 +314,13 @@ def _load_bin_vec(fname, vocab):
                 f.read(binary_len)
     return (word_vecs, layer1_size)
 
+
 def _add_random_vec(word_vecs, vocab, emb_size=300):
     for word in vocab:
         if word not in word_vecs:
             word_vecs[word] = np.random.uniform(-0.25,0.25,emb_size)
     return word_vecs
+
 
 def prepare_pretrained_embedding(fname, word2id):
     print 'Reading pretrained word vectors from file ...'
@@ -332,18 +333,16 @@ def prepare_pretrained_embedding(fname, word2id):
     return embedding
 
 
-
 def offset(array, pre, post):
     ret = np.array(array)
     ret = np.insert(ret, 0, pre)
     ret = np.append(ret, post)
     return ret
 
+
 def calc_auc_pr(precision, recall):
     assert len(precision) == len(recall)
     return np.trapz(offset(precision, 1, 0), x=offset(recall, 0, 1), dx=5)
-
-
 
 
 def prepare_ids(data_dir, vocab_path):
@@ -388,7 +387,6 @@ def main():
     tokenizer = lambda x: x.split()
     create_vocabulary(vocab_er, data_er, max_vocab_size, tokenizer=tokenizer)
     data_to_token_ids(data_er, target_er, vocab_er, tokenizer=tokenizer)
-
 
 
 if __name__ == '__main__':

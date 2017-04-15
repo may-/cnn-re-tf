@@ -8,7 +8,7 @@
 ## Requirements
 
 - [Python 2.7](https://www.python.org/)
-- [Tensorflow](https://www.tensorflow.org/) (tested with version 0.10.0rc0)
+- [Tensorflow](https://www.tensorflow.org/) (tested with version <strike>0.10.0rc0</strike> -> 1.0.1)
 - [Numpy](http://www.numpy.org/)
 
 To download wikipedia articles (`distant_supervision.py`)
@@ -16,10 +16,11 @@ To download wikipedia articles (`distant_supervision.py`)
 - [Beautifulsoup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
 - [Pandas](http://pandas.pydata.org/)
 - [Stanford NER](http://nlp.stanford.edu/software/CRF-NER.shtml)
+    *Path to Stanford-NER is specified in `ner_path` variable in `distant_supervision.py`
 
 To visualize the results (`visualize.ipynb`)
 
-- [Matplotlib](matplotlib.org)
+- [Matplotlib](https://matplotlib.org/)
 - [Scikit-learn](http://scikit-learn.org/)
 
 
@@ -87,7 +88,7 @@ may cause an error. If you want to train the model on another dataset, please ch
 ### Evaluation
 
 ```sh
-python ./eval.py --train_dir=./train/1473898241
+python ./eval.py --train_dir=./models/mlmi-cont
 ```
 Replace the `--train_dir` with the output from the training.
 
@@ -95,7 +96,7 @@ Replace the `--train_dir` with the output from the training.
 ### Run TensorBoard
 
 ```sh
-tensorboard --logdir=./train/1473898241
+tensorboard --logdir=./models/mlmi-cont
 ```
 
 
@@ -106,21 +107,22 @@ tensorboard --logdir=./train/1473898241
 
 ## Results
 
-|         |  P |  R |  F |AUC |
-|--------:|:--:|:--:|:--:|:--:|
-|  ER-CNN |0.93|0.89|0.91|0.92|
-| MLMI-CNN|0.79|0.65|0.71|0.73| 
-|MLMI-CONT|0.82|0.75|0.78|0.79|
+|         |   P  |   R  |   F  |  AUC |
+|--------:|:----:|:----:|:----:|:----:|
+|  ER-CNN |0.9290|0.9040|0.9163|0.9275|
+| MLMI-CNN|0.8205|0.6406|0.7195|0.7424| 
+|MLMI-CONT|0.8819|0.7158|0.7902|0.8156|
 
-![F1](img/f1.png)
-![AUC](img/auc.png)
-![Loss](img/loss.png)
-![PR_Curve](img/pr_curve.png)
-![ER-CNN Embeddings](img/emb_er.png)
-![MLMI-CNN Embeddings](img/emb_cnn.png)
-![MLMI-CONT Left Embeddings](img/emb_left.png)
-![MLMI-CONT Right Embeddings](img/emb_right.png)
+![F1](img/f1.svg)
+![AUC](img/auc.svg)
+![Loss](img/loss.svg)
+![PR_Curve](img/pr_curve.svg)
+![ER-CNN Embeddings](img/emb_er.svg)
+![MLMI-CNN Embeddings](img/emb_cnn.svg)
+![MLMI-CONT Left Embeddings](img/emb_left.svg)
+![MLMI-CONT Right Embeddings](img/emb_right.svg)
 
+* As you see above, these models somewhat suffer from overfitting ...
 
 ## References
 

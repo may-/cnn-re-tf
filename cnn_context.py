@@ -27,23 +27,23 @@ tf.app.flags.DEFINE_boolean('attention', False, 'Whether use attention or not')
 tf.app.flags.DEFINE_boolean('multi_label', False, 'Multilabel or not')
 
 
-
-
 def _variable_on_cpu(name, shape, initializer):
     with tf.device('/cpu:0'):
         var = tf.get_variable(name, shape, initializer=initializer)
     return var
 
+
 def _variable_with_weight_decay(name, shape, initializer, wd):
     var = _variable_on_cpu(name, shape, initializer)
     if wd is not None and wd != 0.:
-        weight_decay = tf.mul(tf.nn.l2_loss(var), wd, name='weight_loss')
+        weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
     else:
         weight_decay = tf.constant(0.0, dtype=tf.float32)
     return var, weight_decay
 
+
 def _auc_pr(true, prob, threshold):
-    pred = tf.select(prob > threshold, tf.ones_like(prob), tf.zeros_like(prob))
+    pred = tf.where(prob > threshold, tf.ones_like(prob), tf.zeros_like(prob))
     tp = tf.logical_and(tf.cast(pred, tf.bool), tf.cast(true, tf.bool))
     fp = tf.logical_and(tf.cast(pred, tf.bool), tf.logical_not(tf.cast(true, tf.bool)))
     fn = tf.logical_and(tf.logical_not(tf.cast(pred, tf.bool)), tf.cast(true, tf.bool))
@@ -98,12 +98,11 @@ class Model(object):
 
         # Combine pooled tensors
         num_filters = self.max_window - self.min_window + 1
-        pool_size = num_filters * self.num_kernel # 300
-        pool_layer = tf.concat(num_filters, pool_tensors, name='pool-%s' % context)
+        pool_size = num_filters * self.num_kernel   # 300
+        pool_layer = tf.concat(pool_tensors, num_filters, name='pool-%s' % context)
         pool_flat = tf.reshape(pool_layer, [-1, pool_size])
 
         return losses, pool_flat
-
 
     def build_graph(self):
         """ Build the computation graph. """
@@ -113,7 +112,6 @@ class Model(object):
         self._labels = tf.placeholder(dtype=tf.float32, shape=[None, self.num_classes], name='input_y')
         self._attention = tf.placeholder(dtype=tf.float32, shape=[None, 1], name='attention')
         losses = []
-
 
         with tf.variable_scope('embedding-left') as scope:
             self._W_emb_left = _variable_on_cpu(name=scope.name, shape=[self.vocab_size, self.emb_size],
@@ -143,9 +141,8 @@ class Model(object):
         # Combine context tensors
         num_filters = self.max_window - self.min_window + 1
         pool_size = num_filters * self.num_kernel # 300
-        concat_context = tf.concat(1, contexts, name='concat')
+        concat_context = tf.concat(contexts, 1, name='concat')
         flat_context = tf.reshape(concat_context, [-1, pool_size*3])
-
 
         # drop out layer
         if self.is_train and self.dropout > 0:
@@ -165,14 +162,14 @@ class Model(object):
         # loss
         with tf.variable_scope('loss') as scope:
             if self.multi_label:
-                cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(self.logits, self._labels,
+                cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=self._labels,
                                                                         name='cross_entropy_per_example')
             else:
-                cross_entropy = tf.nn.softmax_cross_entropy_with_logits(self.logits, self._labels,
+                cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self._labels,
                                                                         name='cross_entropy_per_example')
 
             if self.is_train and self.multi_instance: # apply attention
-                cross_entropy_loss = tf.reduce_sum(tf.mul(cross_entropy, self._attention),
+                cross_entropy_loss = tf.reduce_sum(tf.multiply(cross_entropy, self._attention),
                                                    name='cross_entropy_loss')
             else:
                 cross_entropy_loss = tf.reduce_mean(cross_entropy, name='cross_entropy_loss')
@@ -207,7 +204,7 @@ class Model(object):
             self._train_op = opt.apply_gradients(grads)
 
             for var in tf.trainable_variables():
-                tf.histogram_summary(var.op.name, var)
+                tf.summary.histogram(var.op.name, var)
         else:
             self._train_op = tf.no_op()
 

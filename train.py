@@ -20,16 +20,14 @@ tf.app.flags.DEFINE_string('train_dir', os.path.join(this_dir, 'train'),
 tf.app.flags.DEFINE_integer('train_size', 100000, 'Number of training examples')
 tf.app.flags.DEFINE_integer('num_epochs', 10, 'Number of epochs to run')
 tf.app.flags.DEFINE_boolean('use_pretrain', False, 'Use word2vec pretrained embeddings or not')
-tf.app.flags.DEFINE_boolean('log_device_placement', False, 'Whether log device information in summary')
 
 tf.app.flags.DEFINE_string('optimizer', 'adam',
                            'Optimizer to use. Must be one of "sgd", "adagrad", "adadelta" and "adam"')
-tf.app.flags.DEFINE_float('init_lr', 0.01, 'Initial learning rate')
+tf.app.flags.DEFINE_float('init_lr', 1e-3, 'Initial learning rate')
 tf.app.flags.DEFINE_float('lr_decay', 0.95, 'LR decay rate')
 tf.app.flags.DEFINE_integer('tolerance_step', 500,
                             'Decay the lr after loss remains unchanged for this number of steps')
 tf.app.flags.DEFINE_float('dropout', 0.5, 'Dropout rate. 0 is no dropout.')
-
 
 # logging
 tf.app.flags.DEFINE_integer('log_step', 10, 'Display log to stdout after this step')
@@ -55,11 +53,8 @@ def train(train_data, test_data):
 
     util.dump_to_file(os.path.join(out_dir, 'flags.cPickle'), config)
 
-
     num_batches_per_epoch = int(np.ceil(float(len(train_data))/FLAGS.batch_size))
     max_steps = num_batches_per_epoch * FLAGS.num_epochs
-
-
 
     with tf.Graph().as_default():
         with tf.variable_scope('cnn', reuse=None):
@@ -68,16 +63,23 @@ def train(train_data, test_data):
             mtest = cnn.Model(config, is_train=False)
 
         # checkpoint
-        saver = tf.train.Saver(tf.all_variables())
+        saver = tf.train.Saver(tf.global_variables())
         save_path = os.path.join(out_dir, 'model.ckpt')
-        summary_op = tf.merge_all_summaries()
+        summary_op = tf.summary.merge_all()
 
         # session
-        sess = tf.Session(config=tf.ConfigProto(log_device_placement=FLAGS.log_device_placement))
-        with sess.as_default():
-            train_summary_writer = tf.train.SummaryWriter(os.path.join(out_dir, "train"), graph=sess.graph)
-            dev_summary_writer = tf.train.SummaryWriter(os.path.join(out_dir, "dev"), graph=sess.graph)
-            sess.run(tf.initialize_all_variables())
+        with tf.Session().as_default() as sess:
+            proj_config = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
+            embedding = proj_config.embeddings.add()
+            embedding.tensor_name = m.W_emb.name
+            embedding.metadata_path = os.path.join(FLAGS.data_dir, 'vocab.txt')
+
+            train_summary_writer = tf.summary.FileWriter(os.path.join(out_dir, "train"), graph=sess.graph)
+            dev_summary_writer = tf.summary.FileWriter(os.path.join(out_dir, "dev"), graph=sess.graph)
+            tf.contrib.tensorboard.plugins.projector.visualize_embeddings(train_summary_writer, proj_config)
+            tf.contrib.tensorboard.plugins.projector.visualize_embeddings(dev_summary_writer, proj_config)
+
+            sess.run(tf.global_variables_initializer())
 
             # assign pretrained embeddings
             if FLAGS.use_pretrain:
@@ -101,7 +103,6 @@ def train(train_data, test_data):
                 test_batches = util.batch_iter(test_data, batch_size=FLAGS.batch_size, num_epochs=1, shuffle=False)
                 for batch in test_batches:
                     x_batch, y_batch, _ = zip(*batch)
-                    #a_batch = np.ones((len(batch), 1), dtype=np.float32) / len(batch) # average
                     loss_value, eval_value = sess.run([mtest.total_loss, mtest.eval_op],
                         feed_dict={mtest.inputs: np.array(x_batch), mtest.labels: np.array(y_batch)})
                     dev_loss.append(loss_value)
@@ -109,7 +110,7 @@ def train(train_data, test_data):
                     dev_auc.append(util.calc_auc_pr(pre, rec))
                     dev_f1_score.append((2.0 * pre[5] * rec[5]) / (pre[5] + rec[5])) # threshold = 0.5
 
-                return (np.mean(dev_loss), np.mean(dev_auc), np.mean(dev_f1_score))
+                return np.mean(dev_loss), np.mean(dev_auc), np.mean(dev_f1_score)
 
             # train loop
             print "\nStart training (save checkpoints in %s)\n" % out_dir
@@ -147,9 +148,6 @@ def train(train_data, test_data):
                     print format_str % (datetime.now(), global_step, max_steps, f1, auc, loss_value,
                                         examples_per_sec, proc_duration, current_lr)
 
-
-
-
                 # write summary
                 if global_step % FLAGS.summary_step == 0:
                     summary_str = sess.run(summary_op)
@@ -184,8 +182,6 @@ def train(train_data, test_data):
                     train_auc = []
                     train_f1_score = []
 
-
-
                 # decay learning rate if necessary
                 if loss_value < lowest_loss_value:
                     lowest_loss_value = loss_value
@@ -201,8 +197,6 @@ def train(train_data, test_data):
                 # stop learning if learning rate is too low
                 if current_lr < 1e-5:
                     break
-
-
 
                 # save checkpoint
                 if global_step % FLAGS.checkpoint_step == 0:

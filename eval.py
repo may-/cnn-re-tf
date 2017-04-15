@@ -15,19 +15,12 @@ from datetime import datetime
 import os
 import tensorflow as tf
 import numpy as np
-import pandas as pd
-
-
 import util
 
+
 FLAGS = tf.app.flags.FLAGS
-
-
 this_dir = os.path.abspath(os.path.dirname(__file__))
-
-# eval parameters
-tf.app.flags.DEFINE_string('train_dir', os.path.join(this_dir, 'model'), 'Directory of the checkpoint files')
-#tf.app.flags.DEFINE_boolean('save_fig', False, 'Whether save the visualized image or not')
+tf.app.flags.DEFINE_string('train_dir', os.path.join(this_dir, 'models', 'er-cnn'), 'Directory of the checkpoint files')
 
 
 def evaluate(eval_data, config):
@@ -41,7 +34,7 @@ def evaluate(eval_data, config):
             else:
                 import cnn
                 m = cnn.Model(config, is_train=False)
-        saver = tf.train.Saver(tf.all_variables())
+        saver = tf.train.Saver(tf.global_variables())
 
         with tf.Session() as sess:
             ckpt = tf.train.get_checkpoint_state(config['train_dir'])
@@ -50,14 +43,7 @@ def evaluate(eval_data, config):
             else:
                 raise IOError("Loading checkpoint file failed!")
 
-            #embeddings = sess.run(tf.all_variables())[0]
-
-            print "\nStart evaluation\n"
-            #losses = []
-            #precision = []
-            #recall = []
-            #batches = util.batch_iter(eval_data, batch_size=config['batch_size'], num_epochs=1, shuffle=False)
-            #for batch in batches:
+            print "\nStart evaluation on test set ...\n"
             if config.has_key('contextwise') and config['contextwise']:
                 left_batch, middle_batch, right_batch, y_batch, _ = zip(*eval_data)
                 feed = {m.left: np.array(left_batch),
@@ -68,19 +54,13 @@ def evaluate(eval_data, config):
                 x_batch, y_batch, _ = zip(*eval_data)
                 feed = {m.inputs: np.array(x_batch), m.labels: np.array(y_batch)}
             loss, eval = sess.run([m.total_loss, m.eval_op], feed_dict=feed)
-            #losses.append(loss)
             pre, rec = zip(*eval)
-            #precision.append(pre)
-            #recall.append(rec)
 
-            avg_precision = np.mean(np.array(pre))
-            avg_recall = np.mean(np.array(rec))
             auc = util.calc_auc_pr(pre, rec)
             f1 = (2.0 * pre[5] * rec[5]) / (pre[5] + rec[5])
-            print '%s: loss = %.6f, f1 = %.4f, auc = %.4f' % (datetime.now(), loss, f1, auc)
-
+            print '%s: loss = %.6f, p = %.4f, r = %4.4f, f1 = %.4f, auc = %.4f' % (datetime.now(), loss,
+                                                                                   pre[5], rec[5], f1, auc)
     return pre, rec
-
 
 
 def main(argv=None):
@@ -102,20 +82,5 @@ def main(argv=None):
     util.dump_to_file(os.path.join(FLAGS.train_dir, 'results.cPickle'), {'precision': pre, 'recall': rec})
 
 
-    #if FLAGS.save_fig:
-    #    import matplotlib.pyplot as plt
-    #    plt.style.use('ggplot')
-
-        # precision-recall curve
-        #plt.plot(util.offset(rec, 0, 1), util.offset(pre, 1, 0))
-    #    plt.plot(rec, pre)
-    #    plt.title('Precision-Recall Curve')
-    #    plt.xlabel('Recall')
-    #    plt.ylabel('Precision')
-    #    plt.savefig(os.path.join(FLAGS.train_dir, 'pr_curve.svg'))
-
-
-
 if __name__ == '__main__':
     tf.app.run()
-
