@@ -1,0 +1,12 @@
+embeddings {
+  tensor_name: "cnn/embedding-left/cnn/embedding-left:0"
+  metadata_path: "./data/mlmi/vocab.txt"
+}
+embeddings {
+  tensor_name: "cnn/embedding-middle/cnn/embedding-middle:0"
+  metadata_path: "./data/mlmi/vocab.txt"
+}
+embeddings {
+  tensor_name: "cnn/embedding-right/cnn/embedding-right:0"
+  metadata_path: "./data/mlmi/vocab.txt"
+}
