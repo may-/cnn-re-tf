@@ -107,22 +107,23 @@ tensorboard --logdir=./train/1473898241
 
 ## Results
 
-|         |   P  |   R  |   F  |  AUC ||init_lr|l2_reg|
-|--------:|:----:|:----:|:----:|:----:||------:|-----:|
-|  ER-CNN |0.9410|0.8630|0.9003|0.9303||  0.005|  0.05|
-| MLMI-CNN|0.8205|0.6406|0.7195|0.7424||   1e-3|  1e-4|
-|MLMI-CONT|0.8819|0.7158|0.7902|0.8156||   1e-3|  1e-4|
+|         |   P  |   R  |   F  |  AUC |init_lr|l2_reg|
+|--------:|:----:|:----:|:----:|:----:|------:|-----:|
+|  ER-CNN |0.9410|0.8630|0.9003|0.9303|  0.005|  0.05|
+| MLMI-CNN|0.8205|0.6406|0.7195|0.7424|   1e-3|  1e-4|
+|MLMI-CONT|0.8819|0.7158|0.7902|0.8156|   1e-3|  1e-4|
 
-![F1](img/f1.svg)
-![AUC](img/auc.svg)
+![F1](img/f1.png)
+![AUC](img/auc.png)
 ![Loss](img/loss.svg)
-![PR_Curve](img/pr_curve.svg)
-![ER-CNN Embeddings](img/emb_er.svg)
-![MLMI-CNN Embeddings](img/emb_cnn.svg)
-![MLMI-CONT Left Embeddings](img/emb_left.svg)
-![MLMI-CONT Right Embeddings](img/emb_right.svg)
+![PR_Curve](img/pr_curve.png)
+![ER-CNN Embeddings](img/emb_er.png)
+![MLMI-CNN Embeddings](img/emb_cnn.png)
+![MLMI-CONT Left Embeddings](img/emb_left.png)
+![MLMI-CONT Right Embeddings](img/emb_right.png)
 
 *As you see above, these models somewhat suffer from overfitting ...
+
 
 ## References
 
