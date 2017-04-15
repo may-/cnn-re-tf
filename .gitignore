@@ -11,3 +11,4 @@ data/*/vocab.*
 data/*/emb.npy
 
 models/
+train/
