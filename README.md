@@ -88,7 +88,7 @@ may cause an error. If you want to train the model on another dataset, please ch
 ### Evaluation
 
 ```sh
-python ./eval.py --train_dir=./models/mlmi-cont
+python ./eval.py --train_dir=./train/1473898241
 ```
 Replace the `--train_dir` with the output from the training.
 
@@ -96,7 +96,7 @@ Replace the `--train_dir` with the output from the training.
 ### Run TensorBoard
 
 ```sh
-tensorboard --logdir=./models/mlmi-cont
+tensorboard --logdir=./train/1473898241
 ```
 
 
@@ -107,11 +107,11 @@ tensorboard --logdir=./models/mlmi-cont
 
 ## Results
 
-|         |   P  |   R  |   F  |  AUC |
-|--------:|:----:|:----:|:----:|:----:|
-|  ER-CNN |0.9290|0.9040|0.9163|0.9275|
-| MLMI-CNN|0.8205|0.6406|0.7195|0.7424| 
-|MLMI-CONT|0.8819|0.7158|0.7902|0.8156|
+|         |   P  |   R  |   F  |  AUC ||init_lr|l2_reg|
+|--------:|:----:|:----:|:----:|:----:||------:|-----:|
+|  ER-CNN |0.9410|0.8630|0.9003|0.9303||  0.005|  0.05|
+| MLMI-CNN|0.8205|0.6406|0.7195|0.7424||   1e-3|  1e-4|
+|MLMI-CONT|0.8819|0.7158|0.7902|0.8156||   1e-3|  1e-4|
 
 ![F1](img/f1.svg)
 ![AUC](img/auc.svg)
@@ -122,7 +122,7 @@ tensorboard --logdir=./models/mlmi-cont
 ![MLMI-CONT Left Embeddings](img/emb_left.svg)
 ![MLMI-CONT Right Embeddings](img/emb_right.svg)
 
-* As you see above, these models somewhat suffer from overfitting ...
+*As you see above, these models somewhat suffer from overfitting ...
 
 ## References
 

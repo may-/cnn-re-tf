@@ -52,6 +52,9 @@ def train(train_data, test_data):
         config['max_window'] = config['sent_len']
 
     util.dump_to_file(os.path.join(out_dir, 'flags.cPickle'), config)
+    print "Parameters:"
+    for k, v in config.iteritems():
+        print '%20s %r' % (k, v)
 
     num_batches_per_epoch = int(np.ceil(float(len(train_data))/FLAGS.batch_size))
     max_steps = num_batches_per_epoch * FLAGS.num_epochs

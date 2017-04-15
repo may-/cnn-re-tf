@@ -9,3 +9,5 @@ data/candidates*.tsv
 data/*/ids.*
 data/*/vocab.*
 data/*/emb.npy
+
+models/
