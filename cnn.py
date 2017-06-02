@@ -153,7 +153,7 @@ class Model(object):
             precision = []
             recall = []
             for threshold in range(10, -1, -1):
-                pre, rec = _auc_pr(self._labels, self.logits, threshold * 0.1)
+                pre, rec = _auc_pr(self._labels, tf.sigmoid(self.logits), threshold * 0.1)
                 precision.append(pre)
                 recall.append(rec)
             self._eval_op = zip(precision, recall)
@@ -215,7 +215,7 @@ class Model(object):
 
     @property
     def scores(self):
-        return self.logits
+        return tf.sigmoid(self.logits)
 
     @property
     def W_emb(self):
